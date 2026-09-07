@@ -89,6 +89,46 @@ export function createCamera(container) {
         ctx.fill();
       }
     },
+    drawWordLandmarks({ hands = [], pose = null, handConnections = [], poseConnections = [] }) {
+      if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      this.clearCanvas();
+      const width = canvas.width;
+      const height = canvas.height;
+
+      const drawSet = (landmarks, connections, stroke, fill, radius) => {
+        if (!landmarks?.length) return;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = stroke;
+        ctx.fillStyle = fill;
+        for (const connection of connections) {
+          const startIndex = connection.start ?? connection[0];
+          const endIndex = connection.end ?? connection[1];
+          const start = landmarks[startIndex];
+          const end = landmarks[endIndex];
+          if (!start || !end) continue;
+          ctx.beginPath();
+          ctx.moveTo(start.x * width, start.y * height);
+          ctx.lineTo(end.x * width, end.y * height);
+          ctx.stroke();
+        }
+        for (const landmark of landmarks) {
+          ctx.beginPath();
+          ctx.arc(landmark.x * width, landmark.y * height, radius, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      };
+
+      drawSet(pose, poseConnections, 'rgba(69, 205, 154, 0.85)', '#2fbf8f', 3);
+      hands.forEach((landmarks, index) => {
+        const palette = index % 2 === 0
+          ? ['#8B83FF', '#6C63FF']
+          : ['#FF9F68', '#F47B3C'];
+        drawSet(landmarks, handConnections, palette[0], palette[1], 5);
+      });
+    },
     clearCanvas() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     },

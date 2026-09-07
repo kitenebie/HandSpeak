@@ -11,6 +11,7 @@ import * as practiceWordPage from './pages/practiceWord.js';
 import * as quizzesPage from './pages/quizzes.js';
 import * as letterQuizPage from './pages/letterQuiz.js';
 import * as spellingQuizPage from './pages/spellingQuiz.js';
+import * as wordSignQuizPage from './pages/wordSignQuiz.js';
 import * as quizResultsPage from './pages/quizResults.js';
 import * as authPage from './pages/auth.js';
 import * as studentDashboardPage from './pages/studentDashboard.js';
@@ -86,6 +87,7 @@ async function init() {
       '/quizzes': quizzesPage,
       '/quiz/letter': letterQuizPage,
       '/quiz/spelling': spellingQuizPage,
+      '/quiz/word-sign': wordSignQuizPage,
       '/quiz/results': quizResultsPage,
       '/auth/login': authPage,
       '/auth/register': authPage,

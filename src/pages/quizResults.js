@@ -8,7 +8,7 @@ export function mount(container, params) {
   }
 
   const results = JSON.parse(resultsStr);
-  const type = results.type; // 'letter' or 'spelling'
+  const type = results.type;
   const mistakes = results.mistakes || [];
 
   let mistakesHtml = '';
@@ -16,12 +16,12 @@ export function mount(container, params) {
     mistakesHtml = `
       <div class="asl-results__mistakes">
         <h3>Practice Your Mistakes (${mistakes.length})</h3>
-        <p style="color: var(--color-text-light); margin-bottom: 1rem;">You had difficulty with the following signs. Click Practice on any letter to practice it with your camera:</p>
+        <p style="color: var(--color-text-light); margin-bottom: 1rem;">You had difficulty with the following ${type === 'word_sign' ? 'word signs' : 'signs'}.</p>
         <div style="display: grid; gap: 0.75rem; max-width: 500px; margin: 0 auto;">
           ${mistakes.map(m => `
             <div class="asl-results__mistake-card">
               <span class="asl-results__mistake-letter">${m}</span>
-              <button class="asl-btn asl-btn--secondary btn-practice-mistake" data-letter="${m}">Practice ${m} ✋</button>
+              ${type === 'word_sign' ? '' : `<button class="asl-btn asl-btn--secondary btn-practice-mistake" data-letter="${m}">Practice ${m} ✋</button>`}
             </div>
           `).join('')}
         </div>
@@ -76,13 +76,13 @@ export function mount(container, params) {
   });
 
   container.querySelector('#btn-try-again').addEventListener('click', () => {
-    navigate(type === 'letter' ? '#/quiz/letter' : '#/quiz/spelling');
+    navigate(type === 'letter' ? '#/quiz/letter' : type === 'word_sign' ? '#/quiz/word-sign' : '#/quiz/spelling');
   });
 
   const quizzesBtn = container.querySelector('#btn-quizzes');
   if (quizzesBtn) {
     quizzesBtn.addEventListener('click', () => {
-      navigate('#/quiz/letter');
+      navigate('#/quiz');
     });
   }
 

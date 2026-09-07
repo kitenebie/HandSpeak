@@ -1,0 +1,180 @@
+{
+  "format": "handspeak-temporal-cnn-v1",
+  "generatedBy": "TensorFlow 2.20.0",
+  "modelTopology": {
+    "inputShape": [
+      40,
+      261
+    ],
+    "classCount": 3,
+    "convFilters": [
+      96,
+      128,
+      160
+    ],
+    "denseUnits": 96
+  },
+  "weightOrder": [
+    "weight_000",
+    "weight_001",
+    "weight_002",
+    "weight_003",
+    "weight_004",
+    "weight_005",
+    "weight_006",
+    "weight_007",
+    "weight_008",
+    "weight_009",
+    "weight_010",
+    "weight_011",
+    "weight_012",
+    "weight_013",
+    "weight_014",
+    "weight_015",
+    "weight_016",
+    "weight_017"
+  ],
+  "weightsManifest": [
+    {
+      "paths": [
+        "group1-shard1of1.bin"
+      ],
+      "weights": [
+        {
+          "name": "weight_000",
+          "shape": [
+            3,
+            261,
+            96
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_001",
+          "shape": [
+            96
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_002",
+          "shape": [
+            96
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_003",
+          "shape": [
+            96
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_004",
+          "shape": [
+            3,
+            96,
+            128
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_005",
+          "shape": [
+            128
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_006",
+          "shape": [
+            128
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_007",
+          "shape": [
+            128
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_008",
+          "shape": [
+            3,
+            128,
+            160
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_009",
+          "shape": [
+            160
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_010",
+          "shape": [
+            160,
+            96
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_011",
+          "shape": [
+            96
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_012",
+          "shape": [
+            96,
+            3
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_013",
+          "shape": [
+            3
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_014",
+          "shape": [
+            96
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_015",
+          "shape": [
+            96
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_016",
+          "shape": [
+            128
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "weight_017",
+          "shape": [
+            128
+          ],
+          "dtype": "float32"
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { VALID_LETTERS } from '../data/alphabet.js';
-import { LETTER_QUIZ_POINTS, SPELLING_QUIZ_POINTS, calculateLetterQuizScore, calculateSpellingScore } from './scoring.js';
+import { LETTER_QUIZ_POINTS, SPELLING_QUIZ_POINTS, WORD_SIGN_QUIZ_POINTS, calculateLetterQuizScore, calculateSpellingScore, calculateWordSignScore } from './scoring.js';
 
 export const DIFFICULTY = {
   easy: { stabilityFrames: 3, minConfidence: 0.6 },
@@ -177,5 +177,62 @@ export class SpellingQuizEngine {
   
   getScore() {
     return this.score;
+  }
+}
+
+export class WordSignQuizEngine {
+  constructor({ words = [], questionCount = words.length }) {
+    const uniqueWords = [...new Set(words.map(word => String(word).trim()).filter(Boolean))];
+    shuffle(uniqueWords);
+    this.questions = uniqueWords.slice(0, Math.min(questionCount, uniqueWords.length));
+    this.currentIndex = 0;
+    this.correctCount = 0;
+    this.incorrectCount = 0;
+    this.mistakes = [];
+  }
+
+  getCurrentQuestion() {
+    if (this.isComplete()) return null;
+    return {
+      word: this.questions[this.currentIndex],
+      questionNumber: this.currentIndex + 1,
+      totalQuestions: this.questions.length
+    };
+  }
+
+  checkAnswer(detectedLabel) {
+    const targetWord = this.questions[this.currentIndex];
+    const correct = String(detectedLabel).toLocaleLowerCase() === targetWord.toLocaleLowerCase();
+    if (correct) {
+      this.correctCount++;
+    } else {
+      this.incorrectCount++;
+      if (!this.mistakes.includes(targetWord)) this.mistakes.push(targetWord);
+    }
+    return {
+      correct,
+      targetWord,
+      detectedWord: detectedLabel,
+      points: correct ? WORD_SIGN_QUIZ_POINTS.correct : WORD_SIGN_QUIZ_POINTS.incorrect
+    };
+  }
+
+  nextQuestion() {
+    this.currentIndex++;
+  }
+
+  isComplete() {
+    return this.currentIndex >= this.questions.length;
+  }
+
+  getResults() {
+    const scoring = calculateWordSignScore(this.correctCount, this.questions.length);
+    return {
+      ...scoring,
+      correct: this.correctCount,
+      incorrect: this.incorrectCount,
+      mistakes: this.mistakes,
+      totalQuestions: this.questions.length
+    };
   }
 }
