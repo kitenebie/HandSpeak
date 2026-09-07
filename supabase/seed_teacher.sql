@@ -1,0 +1,7 @@
+-- Safe teacher setup
+--
+-- Administrators should add teachers in the app's Admin Panel. It creates an
+-- invitation code; the teacher then registers through the app using that code.
+--
+-- Do NOT insert rows directly into auth.users. Supabase Auth must create all
+-- user records through Authentication > Users or the Auth API.
