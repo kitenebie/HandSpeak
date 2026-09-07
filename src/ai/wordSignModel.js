@@ -12,6 +12,28 @@ function isLandmarkSet(value, expectedLength) {
     return Array.isArray(value) && value.length >= expectedLength;
 }
 
+function createTemporalCnn(topology) {
+    const input = tf.input({ shape: topology.inputShape, name: 'landmark_sequence' });
+    let output = tf.layers.conv1d({
+        filters: topology.convFilters[0], kernelSize: 3, padding: 'same', activation: 'relu'
+    }).apply(input);
+    output = tf.layers.batchNormalization().apply(output);
+    output = tf.layers.maxPooling1d({ poolSize: 2 }).apply(output);
+    output = tf.layers.conv1d({
+        filters: topology.convFilters[1], kernelSize: 3, padding: 'same', activation: 'relu'
+    }).apply(output);
+    output = tf.layers.batchNormalization().apply(output);
+    output = tf.layers.maxPooling1d({ poolSize: 2 }).apply(output);
+    output = tf.layers.conv1d({
+        filters: topology.convFilters[2], kernelSize: 3, padding: 'same', activation: 'relu'
+    }).apply(output);
+    output = tf.layers.globalAveragePooling1d().apply(output);
+    output = tf.layers.dense({ units: topology.denseUnits, activation: 'relu' }).apply(output);
+    output = tf.layers.dropout({ rate: 0.35 }).apply(output);
+    output = tf.layers.dense({ units: topology.classCount, activation: 'softmax' }).apply(output);
+    return tf.model({ inputs: input, outputs: output, name: 'word_sign_temporal_cnn' });
+}
+
 /**
  * Load the model and preprocessing metadata exported by
  * train_word_sign_language.ipynb.
@@ -20,23 +42,46 @@ export async function loadWordSignModel() {
     if (model) return;
 
     await tf.ready();
-    const [loadedModel, labelsResponse, configResponse] = await Promise.all([
-        tf.loadLayersModel(MODEL_URL),
+    const [modelResponse, labelsResponse, configResponse] = await Promise.all([
+        fetch(MODEL_URL),
         fetch(LABELS_URL),
         fetch(CONFIG_URL)
     ]);
 
+    if (!modelResponse.ok) {
+        throw new Error(`Could not load word model manifest (${modelResponse.status})`);
+    }
     if (!labelsResponse.ok) {
-        loadedModel.dispose();
         throw new Error(`Could not load word labels (${labelsResponse.status})`);
     }
     if (!configResponse.ok) {
-        loadedModel.dispose();
         throw new Error(`Could not load word feature config (${configResponse.status})`);
     }
 
+    const manifest = await modelResponse.json();
     const loadedLabels = await labelsResponse.json();
     const loadedConfig = await configResponse.json();
+    if (manifest.format !== 'handspeak-temporal-cnn-v1') {
+        throw new Error(`Unsupported word model format: ${manifest.format}`);
+    }
+
+    const loadedModel = createTemporalCnn(manifest.modelTopology);
+    const modelBaseUrl = MODEL_URL.slice(0, MODEL_URL.lastIndexOf('/') + 1);
+    const weightMap = await tf.io.loadWeights(manifest.weightsManifest, modelBaseUrl);
+    const orderedWeights = manifest.weightOrder.map(name => {
+        if (!weightMap[name]) throw new Error(`Missing exported weight: ${name}`);
+        return weightMap[name];
+    });
+    if (orderedWeights.length !== loadedModel.weights.length) {
+        loadedModel.dispose();
+        orderedWeights.forEach(weight => weight.dispose());
+        throw new Error(
+            `Expected ${loadedModel.weights.length} model weights, got ${orderedWeights.length}`
+        );
+    }
+    loadedModel.setWeights(orderedWeights);
+    orderedWeights.forEach(weight => weight.dispose());
+
     const inputShape = loadedModel.inputs[0].shape;
 
     if (
