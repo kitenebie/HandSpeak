@@ -1,5 +1,6 @@
 node_modules
 datasets
+datasets.zip
 .env
 .env.backup
 .env.production
