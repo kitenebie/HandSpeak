@@ -4,6 +4,7 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+const allowedGenders = new Set(['female', 'male', 'other', 'unspecified']);
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -28,10 +29,13 @@ Deno.serve(async (request) => {
       .from('profiles').select('role').eq('id', user.id).single();
     if (profileError || adminProfile?.role !== 'admin') throw new Error('Administrator access is required.');
 
-    const { fullName, email, inviteCode } = await request.json();
+    const { fullName, email, inviteCode, gender } = await request.json();
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const normalizedCode = String(inviteCode || '').trim().toUpperCase();
     const normalizedName = String(fullName || '').trim();
+    const normalizedGender = allowedGenders.has(String(gender || '').trim().toLowerCase())
+      ? String(gender || '').trim().toLowerCase()
+      : 'unspecified';
     if (!normalizedName || !normalizedEmail || !normalizedCode) throw new Error('Teacher name, email, and invitation code are required.');
 
     const { data: invite, error: inviteError } = await adminClient.from('teacher_invites').insert({
@@ -43,7 +47,7 @@ Deno.serve(async (request) => {
     if (inviteError) throw inviteError;
 
     const { error: authError } = await adminClient.auth.admin.inviteUserByEmail(normalizedEmail, {
-      data: { full_name: normalizedName, teacher_invite_code: normalizedCode },
+      data: { full_name: normalizedName, teacher_invite_code: normalizedCode, gender: normalizedGender },
     });
     if (authError) {
       await adminClient.from('teacher_invites').delete().eq('id', invite.id);

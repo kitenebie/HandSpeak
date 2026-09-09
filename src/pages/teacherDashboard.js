@@ -7,6 +7,7 @@ import {
   getTeacherAttempts,
   getTeacherQuizzes,
   getTeacherStudents,
+  registerStudent,
   removeStudentFromClassroom,
   updateAttemptScore,
   updateQuiz,
@@ -42,6 +43,107 @@ function attemptsWithNumbers(attempts) {
       counts.set(key, attemptNumber);
       return { ...attempt, attemptNumber };
     });
+}
+
+const genderLabel = value => ({
+  female: 'Female',
+  male: 'Male',
+  other: 'Other',
+  unspecified: 'Unspecified'
+})[value] || 'Unspecified';
+
+function getTeacherView() {
+  const path = window.location.hash.slice(1) || '/teacher';
+  if (path.startsWith('/teacher/activities')) return 'activities';
+  if (path.startsWith('/teacher/students')) return 'students';
+  if (path.startsWith('/teacher/performance')) return 'performance';
+  return 'dashboard';
+}
+
+function renderBars(items, emptyLabel = 'No data yet.') {
+  const max = Math.max(1, ...items.map(item => item.value));
+  if (!items.some(item => item.value > 0)) return `<div class="asl-empty-card">${emptyLabel}</div>`;
+  return `<div class="asl-bar-chart">${items.map(item => `
+    <div class="asl-bar-chart__row">
+      <span>${escape(item.label)}</span>
+      <div class="asl-bar-chart__track"><i style="width:${Math.max(6, Math.round((item.value / max) * 100))}%"></i></div>
+      <strong>${item.value}</strong>
+    </div>`).join('')}</div>`;
+}
+
+function renderTeacherDashboardView({ profile, quizzes, students, attempts, classroom }) {
+  const attemptedStudents = new Set(attempts.map(a => a.student_id)).size;
+  const average = attempts.length ? Math.round(attempts.reduce((sum, item) => sum + Number(item.accuracy || 0), 0) / attempts.length) : 0;
+  const quizTypes = ['alphabet', 'spelling', 'word_sign'].map(type => ({
+    label: quizTypeLabel(type),
+    value: quizzes.filter(quiz => quiz.quiz_type === type).length
+  }));
+  const attemptTypes = ['alphabet', 'spelling', 'word_sign'].map(type => ({
+    label: quizTypeLabel(type),
+    value: attempts.filter(attempt => attempt.quiz_type === type).length
+  }));
+  return `
+    <div class="asl-dashboard__heading">
+      <div><span class="asl-eyebrow">Teacher dashboard</span><h1>${escape(profile.full_name || 'Teacher')}’s classroom</h1><p>Quick stats and activity graphs for your class.</p></div>
+      <div class="asl-room-code"><span>Student room code</span><strong>${escape(classroom?.join_code || 'Not available')}</strong><small>Use this for self-registration.</small></div>
+    </div>
+    <div class="asl-metric-grid"><div class="asl-metric"><strong>${students.length}</strong><span>Registered students</span></div><div class="asl-metric"><strong>${attemptedStudents}</strong><span>Students assessed</span></div><div class="asl-metric"><strong>${average}%</strong><span>Class average</span></div><div class="asl-metric"><strong>${quizzes.filter(q => q.is_published).length}</strong><span>Published quizzes</span></div></div>
+    <div class="asl-report-grid">
+      <section class="asl-card"><h2>Quiz types</h2>${renderBars(quizTypes, 'No quizzes created yet.')}</section>
+      <section class="asl-card"><h2>Attempts by activity</h2>${renderBars(attemptTypes, 'No submitted attempts yet.')}</section>
+    </div>`;
+}
+
+function renderCreateQuizCard(supportedWordSigns) {
+  return `
+    <section class="asl-card"><h2>Create a quiz</h2><p class="asl-muted">Each student receives a randomized question order from the range you set.</p>
+      <button type="button" class="asl-btn asl-btn--primary asl-form-toggle" data-form-id="quiz-create-form" data-label="Create new quiz" aria-controls="quiz-create-form" aria-expanded="false"><i data-lucide="plus"></i>Create Quiz</button>
+      <form id="quiz-create-form" class="asl-form" hidden>
+        <label>Quiz title<input name="title" required maxlength="100" placeholder="e.g. Alphabet review 1"></label>
+        <label>Quiz type<select name="quizType" id="quiz-type"><option value="alphabet">Alphabet translation</option><option value="spelling">Word spelling</option><option value="word_sign">Word sign recognition</option></select></label>
+        <div id="alphabet-options"><div class="asl-form-row"><label>From<select name="rangeStart">${letters.map(l => `<option>${l}</option>`).join('')}</select></label><label>To<select name="rangeEnd">${letters.map(l => `<option ${l === 'Z' ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div></div>
+        <div id="spelling-options" hidden><label>Words (comma-separated)<input name="words" value="${WORDS.slice(0, 5).join(', ')}" placeholder="HELLO, SCHOOL, FRIEND"></label></div>
+        <div id="word-sign-options" hidden>
+          <label>Word quiz format<select name="wordQuizType" id="word-quiz-type"><option value="single_word">Single Word</option><option value="two_words">Two Words</option></select></label>
+          <div id="single-word-options"><label>Recognizable words<select name="wordSigns" id="word-sign-select" multiple size="${Math.max(3, supportedWordSigns.length)}" required>${supportedWordSigns.map(word => `<option value="${escape(word)}" selected>${escape(word)}</option>`).join('')}</select><small>Only words included in the trained model are available. Use Ctrl/Cmd-click to change multiple selections.</small></label></div>
+          <div id="two-word-options" class="asl-form-row" hidden>
+            <label>Word 1<select name="wordSign1" id="word-sign-1" required>${supportedWordSigns.map((word, index) => `<option value="${escape(word)}" ${index === 0 ? 'selected' : ''}>${escape(word)}</option>`).join('')}</select></label>
+            <label>Word 2<select name="wordSign2" id="word-sign-2" required>${supportedWordSigns.map((word, index) => `<option value="${escape(word)}" ${index === 1 ? 'selected' : ''}>${escape(word)}</option>`).join('')}</select></label>
+          </div>
+          <small>Two-word signs are checked in the selected order and count as one question.</small>
+        </div>
+        <label id="question-count-field">Questions per student<input name="questionCount" type="number" min="1" max="26" value="10" required></label>
+        <label>Allowed attempts per student<input name="maxAttempts" type="number" min="1" max="10" value="1" required><small>Set 2 if students can take the same quiz twice.</small></label>
+        <div class="asl-form-row"><label>Available from<input name="availableFrom" type="datetime-local"></label><label>Available until<input name="availableUntil" type="datetime-local"></label></div>
+        <label class="asl-checkbox"><input type="checkbox" name="published" checked> Publish immediately</label>
+        <div id="create-message" class="asl-form__message" aria-live="polite"></div><button class="asl-btn asl-btn--primary" type="submit">Create quiz</button>
+      </form>
+    </section>`;
+}
+
+function renderQuizTable(quizzes) {
+  return `<div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Attempts</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}${q.quiz_type === 'word_sign' ? `<br><small>${wordQuizTypeLabel(q)}</small>` : ''}</td><td>${q.question_count}</td><td>${getMaxAttempts(q)}</td><td><span class="asl-status ${q.is_published ? 'asl-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td><td><div class="asl-table-actions">${actionButton('edit-quiz', q.id, 'pencil', 'Edit quiz')}${actionButton('delete-quiz', q.id, 'trash-2', 'Delete quiz', 'asl-icon-btn--danger')}</div></td></tr>`).join('') || '<tr><td colspan="7" class="asl-empty">Create your first quiz above.</td></tr>'}</tbody></table></div>`;
+}
+
+function renderStudentRows(students, attempts) {
+  return students.map(student => {
+    const own = attempts.filter(a => a.student_id === student.id);
+    const avg = own.length ? Math.round(own.reduce((sum,a) => sum + Number(a.accuracy || 0),0) / own.length) : '-';
+    return `<tr><td>${escape(student.full_name || student.email)}</td><td>${escape(student.email || '-')}</td><td>${escape(genderLabel(student.gender))}</td><td>${new Date(student.joined_at || student.created_at).toLocaleDateString()}</td><td>${own.length}</td><td>${avg === '-' ? avg : `${avg}%`}</td><td><div class="asl-table-actions">${actionButton('edit-student', student.id, 'pencil', 'Edit student')}${actionButton('delete-student', student.id, 'trash-2', 'Remove student', 'asl-icon-btn--danger')}</div></td></tr>`;
+  }).join('') || '<tr><td colspan="7" class="asl-empty">No students have registered yet.</td></tr>';
+}
+
+function renderPerformanceRows(attempts, filters = {}) {
+  let rows = attemptsWithNumbers(attempts);
+  if (filters.quizId) rows = rows.filter(attempt => attempt.quiz_id === filters.quizId);
+  if (filters.quizType) rows = rows.filter(attempt => attempt.quiz_type === filters.quizType);
+  rows.sort((a, b) => {
+    if (filters.sort === 'lowest') return Number(a.accuracy || 0) - Number(b.accuracy || 0);
+    if (filters.sort === 'highest') return Number(b.accuracy || 0) - Number(a.accuracy || 0);
+    if (filters.sort === 'oldest') return new Date(a.completed_at || a.started_at || 0) - new Date(b.completed_at || b.started_at || 0);
+    return new Date(b.completed_at || b.started_at || 0) - new Date(a.completed_at || a.started_at || 0);
+  });
+  return rows.map(attempt => `<tr><td>${escape(attempt.profiles?.full_name || attempt.profiles?.email || 'Student')}</td><td>${escape(attempt.quizzes?.title || quizTypeLabel(attempt.quiz_type))}</td><td>${escape(quizTypeLabel(attempt.quiz_type))}</td><td>${ordinalAttempt(attempt.attemptNumber)}</td><td>${attempt.score} / ${attempt.max_score}</td><td>${Math.round(attempt.accuracy || 0)}%</td><td>${attemptDate(attempt.completed_at)}</td><td><div class="asl-table-actions">${actionButton('edit-attempt', attempt.id, 'pencil', 'Edit score')}${actionButton('delete-attempt', attempt.id, 'trash-2', 'Delete attempt', 'asl-icon-btn--danger')}</div></td></tr>`).join('') || '<tr><td colspan="8" class="asl-empty">No matching performance records.</td></tr>';
 }
 
 function renderStudentAttemptHistory(students, attempts) {
@@ -87,50 +189,40 @@ export async function mount(container) {
 }
 
 function render(container, profile, quizzes, students, attempts, classroom, supportedWordSigns) {
-  const attemptedStudents = new Set(attempts.map(a => a.student_id)).size;
-  const average = attempts.length ? Math.round(attempts.reduce((sum, item) => sum + Number(item.accuracy || 0), 0) / attempts.length) : 0;
   const quizzesById = new Map(quizzes.map(quiz => [quiz.id, quiz]));
   const studentsById = new Map(students.map(student => [student.id, student]));
   const attemptsById = new Map(attempts.map(attempt => [attempt.id, attempt]));
   const actionMessage = pendingTeacherMessage;
   pendingTeacherMessage = null;
+  const view = getTeacherView();
+  const content = {
+    dashboard: renderTeacherDashboardView({ profile, quizzes, students, attempts, classroom }),
+    activities: `
+      <div class="asl-section__heading">
+        <div><span class="asl-eyebrow">Teacher activities</span><h1>Activities</h1><p>Manage quizzes and publish classroom work.</p></div>
+      </div>
+      ${renderCreateQuizCard(supportedWordSigns)}
+      <section class="asl-section"><h2>Quizzes list</h2>${renderQuizTable(quizzes)}</section>`,
+    students: `
+      <div class="asl-section__heading">
+        <div><span class="asl-eyebrow">Teacher records</span><h1>Student List</h1><p>Manage student records connected to your classroom.</p></div>
+        <button type="button" class="asl-btn asl-btn--primary" data-action="register-student"><i data-lucide="user-plus"></i>Register Student</button>
+      </div>
+      <section class="asl-section"><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Email</th><th>Gender</th><th>Joined</th><th>Attempts</th><th>Average</th><th>Actions</th></tr></thead><tbody>${renderStudentRows(students, attempts)}</tbody></table></div></section>`,
+    performance: `
+      <div class="asl-section__heading"><div><span class="asl-eyebrow">Teacher reports</span><h1>Performance</h1><p>Filter quiz attempts by quiz, type, and score order.</p></div></div>
+      <section class="asl-card asl-filter-panel">
+        <label>Quiz<select id="performance-filter-quiz"><option value="">All quizzes</option>${quizzes.map(quiz => `<option value="${escape(quiz.id)}">${escape(quiz.title)}</option>`).join('')}</select></label>
+        <label>Type<select id="performance-filter-type"><option value="">All types</option><option value="alphabet">Alphabet</option><option value="spelling">Spelling</option><option value="word_sign">Word sign</option></select></label>
+        <label>Sort<select id="performance-filter-sort"><option value="recent">Most recent</option><option value="highest">Highest score</option><option value="lowest">Lowest score</option><option value="oldest">Oldest</option></select></label>
+      </section>
+      <section class="asl-section"><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Quiz</th><th>Type</th><th>Attempt</th><th>Score</th><th>Accuracy</th><th>Completed</th><th>Actions</th></tr></thead><tbody id="performance-table-body">${renderPerformanceRows(attempts)}</tbody></table></div></section>`
+  }[view];
+
   container.innerHTML = `
     <div class="asl-dashboard asl-container">
-      <div class="asl-dashboard__heading"><div><span class="asl-eyebrow">Teacher panel</span><h1>${escape(profile.full_name || 'Teacher')}’s classroom</h1><p>Create protected randomized quizzes and keep an eye on every learner.</p></div><div class="asl-room-code"><span>Student room code</span><strong>${escape(classroom?.join_code || 'Not available')}</strong><small>Students use this code when registering.</small></div></div>
-      <div class="asl-metric-grid"><div class="asl-metric"><strong>${students.length}</strong><span>Registered students</span></div><div class="asl-metric"><strong>${attemptedStudents}</strong><span>Students assessed</span></div><div class="asl-metric"><strong>${average}%</strong><span>Class average</span></div><div class="asl-metric"><strong>${quizzes.filter(q => q.is_published).length}</strong><span>Active quizzes</span></div></div>
       <div id="teacher-action-message" class="asl-form__message ${actionMessage ? `asl-form__message--${actionMessage.type}` : ''}" aria-live="polite">${actionMessage ? escape(actionMessage.text) : ''}</div>
-      <div class="asl-teacher-grid">
-        <section class="asl-card"><h2>Create a quiz</h2><p class="asl-muted">Each student receives a randomized question order from the range you set.</p>
-          <button type="button" class="asl-btn asl-btn--secondary asl-form-toggle" data-form-id="quiz-create-form" data-label="Create new quiz" aria-controls="quiz-create-form" aria-expanded="false">Create new quiz</button>
-          <form id="quiz-create-form" class="asl-form" hidden>
-            <label>Quiz title<input name="title" required maxlength="100" placeholder="e.g. Alphabet review 1"></label>
-            <label>Quiz type<select name="quizType" id="quiz-type"><option value="alphabet">Alphabet translation</option><option value="spelling">Word spelling</option><option value="word_sign">Word sign recognition</option></select></label>
-            <div id="alphabet-options"><div class="asl-form-row"><label>From<select name="rangeStart">${letters.map(l => `<option>${l}</option>`).join('')}</select></label><label>To<select name="rangeEnd">${letters.map(l => `<option ${l === 'Z' ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div></div>
-            <div id="spelling-options" hidden><label>Words (comma-separated)<input name="words" value="${WORDS.slice(0, 5).join(', ')}" placeholder="HELLO, SCHOOL, FRIEND"></label></div>
-            <div id="word-sign-options" hidden>
-              <label>Word quiz format<select name="wordQuizType" id="word-quiz-type"><option value="single_word">Single Word</option><option value="two_words">Two Words</option></select></label>
-              <div id="single-word-options"><label>Recognizable words<select name="wordSigns" id="word-sign-select" multiple size="${Math.max(3, supportedWordSigns.length)}" required>${supportedWordSigns.map(word => `<option value="${escape(word)}" selected>${escape(word)}</option>`).join('')}</select><small>Only words included in the trained model are available. Use Ctrl/Cmd-click to change multiple selections.</small></label></div>
-              <div id="two-word-options" class="asl-form-row" hidden>
-                <label>Word 1<select name="wordSign1" id="word-sign-1" required>${supportedWordSigns.map((word, index) => `<option value="${escape(word)}" ${index === 0 ? 'selected' : ''}>${escape(word)}</option>`).join('')}</select></label>
-                <label>Word 2<select name="wordSign2" id="word-sign-2" required>${supportedWordSigns.map((word, index) => `<option value="${escape(word)}" ${index === 1 ? 'selected' : ''}>${escape(word)}</option>`).join('')}</select></label>
-              </div>
-              <small>Two-word signs are checked in the selected order and count as one question.</small>
-            </div>
-            <label id="question-count-field">Questions per student<input name="questionCount" type="number" min="1" max="26" value="10" required></label>
-            <label>Allowed attempts per student<input name="maxAttempts" type="number" min="1" max="10" value="1" required><small>Set 2 if students can take the same quiz twice.</small></label>
-            <div class="asl-form-row"><label>Available from<input name="availableFrom" type="datetime-local"></label><label>Available until<input name="availableUntil" type="datetime-local"></label></div>
-            <label class="asl-checkbox"><input type="checkbox" name="published" checked> Publish immediately</label>
-            <div id="create-message" class="asl-form__message" aria-live="polite"></div><button class="asl-btn asl-btn--primary" type="submit">Create quiz</button>
-          </form>
-        </section>
-        <section class="asl-card"><h2>Student list &amp; progression</h2><p class="asl-muted">Every registered student, with their quiz activity and average score.</p><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Joined</th><th>Attempts</th><th>Average</th><th>Actions</th></tr></thead><tbody>${students.map(student => {
-          const own = attempts.filter(a => a.student_id === student.id); const avg = own.length ? Math.round(own.reduce((sum,a) => sum + Number(a.accuracy || 0),0) / own.length) : '—';
-          return `<tr><td>${escape(student.full_name || student.email)}</td><td>${new Date(student.joined_at || student.created_at).toLocaleDateString()}</td><td>${own.length}</td><td>${avg === '—' ? avg : `${avg}%`}</td><td><div class="asl-table-actions">${actionButton('edit-student', student.id, 'pencil', 'Edit student name')}${actionButton('delete-student', student.id, 'trash-2', 'Remove student from classroom', 'asl-icon-btn--danger')}</div></td></tr>`;
-        }).join('') || '<tr><td colspan="5" class="asl-empty">No students have registered yet.</td></tr>'}</tbody></table></div>
-        </section>
-      </div>
-      <section class="asl-section"><h2>Quiz list</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Attempts</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}${q.quiz_type === 'word_sign' ? `<br><small>${wordQuizTypeLabel(q)}</small>` : ''}</td><td>${q.question_count}</td><td>${getMaxAttempts(q)}</td><td><span class="asl-status ${q.is_published ? 'asl-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td><td><div class="asl-table-actions">${actionButton('edit-quiz', q.id, 'pencil', 'Edit quiz')}${actionButton('delete-quiz', q.id, 'trash-2', 'Delete quiz', 'asl-icon-btn--danger')}</div></td></tr>`).join('') || '<tr><td colspan="7" class="asl-empty">Create your first quiz above.</td></tr>'}</tbody></table></div></section>
-      <section class="asl-section"><h2>Student attempt history</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Recorded scores per attempt</th><th>Actions</th></tr></thead><tbody>${renderStudentAttemptHistory(students, attempts)}</tbody></table></div></section>
+      ${content}
     </div>`;
 
   const drawerEntries = [];
@@ -281,11 +373,13 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
     openEditModal({
       title: 'Student details',
       description: student.email,
-      body: `<label>Student name<input name="fullName" required maxlength="120" value="${escape(student.full_name || '')}" placeholder="Student full name"></label>`,
+      body: `
+        <label>Student name<input name="fullName" required maxlength="120" value="${escape(student.full_name || '')}" placeholder="Student full name"></label>
+        <label>Gender<select name="gender"><option value="unspecified" ${student.gender === 'unspecified' || !student.gender ? 'selected' : ''}>Unspecified</option><option value="female" ${student.gender === 'female' ? 'selected' : ''}>Female</option><option value="male" ${student.gender === 'male' ? 'selected' : ''}>Male</option><option value="other" ${student.gender === 'other' ? 'selected' : ''}>Other</option></select></label>`,
       onSubmit: async fields => {
         const fullName = String(fields.get('fullName') || '').trim();
         if (!fullName) throw new Error('Student name cannot be empty.');
-        await updateStudentProfile(student.id, { full_name: fullName });
+        await updateStudentProfile(student.id, { full_name: fullName, gender: String(fields.get('gender') || 'unspecified') });
         pendingTeacherMessage = { text: 'Student updated.', type: 'success' };
         await mount(container);
       }
@@ -346,6 +440,35 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
     });
   };
 
+  const openRegisterStudentModal = () => {
+    if (!classroom) {
+      setActionMessage('Your teacher room is not ready yet. Contact an administrator.', 'error');
+      return;
+    }
+    openEditModal({
+      title: 'Register student',
+      description: `Classroom code: ${classroom.join_code}`,
+      body: `
+        <label>Student name<input name="fullName" required maxlength="120" placeholder="Student full name"></label>
+        <label>Email<input name="email" type="email" required placeholder="student@example.com"></label>
+        <div class="asl-form-row">
+          <label>Gender<select name="gender"><option value="unspecified">Unspecified</option><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></label>
+          <label>Temporary password<input name="password" type="password" minlength="6" required placeholder="At least 6 characters"></label>
+        </div>`,
+      onSubmit: async fields => {
+        await registerStudent({
+          classroomId: classroom.id,
+          fullName: String(fields.get('fullName') || '').trim(),
+          email: String(fields.get('email') || '').trim(),
+          gender: String(fields.get('gender') || 'unspecified'),
+          password: String(fields.get('password') || '')
+        });
+        pendingTeacherMessage = { text: 'Student registered and added to the classroom.', type: 'success' };
+        await mount(container);
+      }
+    });
+  };
+
   if (container.__teacherActionHandler) container.removeEventListener('click', container.__teacherActionHandler);
   const handleTeacherAction = async event => {
     const button = event.target.closest('[data-action]');
@@ -356,6 +479,10 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
         const student = studentsById.get(id);
         if (!student) throw new Error('Student record was not found.');
         openStudentEditModal(student);
+        return;
+      }
+      if (action === 'register-student') {
+        openRegisterStudentModal();
         return;
       }
       if (action === 'delete-student') {
@@ -423,7 +550,25 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
   container.__teacherActionHandler = handleTeacherAction;
   container.addEventListener('click', handleTeacherAction);
 
+  const performanceFilters = [
+    container.querySelector('#performance-filter-quiz'),
+    container.querySelector('#performance-filter-type'),
+    container.querySelector('#performance-filter-sort')
+  ];
+  const updatePerformanceTable = () => {
+    const body = container.querySelector('#performance-table-body');
+    if (!body) return;
+    body.innerHTML = renderPerformanceRows(attempts, {
+      quizId: container.querySelector('#performance-filter-quiz')?.value || '',
+      quizType: container.querySelector('#performance-filter-type')?.value || '',
+      sort: container.querySelector('#performance-filter-sort')?.value || 'recent'
+    });
+    createIcons({ icons });
+  };
+  performanceFilters.forEach(filter => filter?.addEventListener('change', updatePerformanceTable));
+
   const form = container.querySelector('#quiz-create-form');
+  if (!form) return;
   const type = container.querySelector('#quiz-type');
   const questionCountInput = form.querySelector('[name="questionCount"]');
   const wordSignSelect = container.querySelector('#word-sign-select');

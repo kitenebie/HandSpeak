@@ -20,20 +20,22 @@ export function createNavbar(container) {
   let activePath = window.location.hash.slice(1) || '/';
 
   const applyActiveState = () => {
+    let bestMatch = null;
     links.forEach(link => {
       const linkPath = link.getAttribute('data-path');
-      if (linkPath === '/' && activePath === '/') {
-        link.classList.add('active');
-      } else if (linkPath !== '/' && activePath.startsWith(linkPath)) {
-        link.classList.add('active');
-      } else {
-        link.classList.remove('active');
+      const matches = linkPath === '/'
+        ? activePath === '/'
+        : activePath === linkPath || activePath.startsWith(linkPath + '/');
+      if (matches && (!bestMatch || linkPath.length > bestMatch.getAttribute('data-path').length)) {
+        bestMatch = link;
       }
     });
+    links.forEach(link => link.classList.toggle('active', link === bestMatch));
   };
 
   const renderLinks = (profile = null) => {
     const holder = el.querySelector('.asl-navbar__links');
+    const sectionLabel = el.querySelector('.asl-navbar__section-label');
     const isAuthenticated = Boolean(profile);
     el.hidden = !isAuthenticated;
     document.body.classList.toggle('asl-sidebar-hidden', !isAuthenticated);
@@ -42,11 +44,13 @@ export function createNavbar(container) {
       links = [];
       return;
     }
-    const destination = profile?.role === 'admin' ? 'admin' : profile?.role === 'teacher' ? 'teacher' : 'student';
-    const dashboardLink = '<a href="#/' + destination + '" data-path="/' + destination + '"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>';
     const accountLink = '<button type="button" class="asl-navbar__logout" id="nav-logout"><i data-lucide="log-out"></i><span>Sign out</span></button>';
-    const learningLinks = profile?.role === 'admin' ? '' : '<a href="#/learn" data-path="/learn"><i data-lucide="book-open"></i><span>Learning</span></a><a href="#/quiz" data-path="/quiz"><i data-lucide="clipboard-check"></i><span>Quizzes</span></a>';
-    holder.innerHTML = `${dashboardLink}${learningLinks}${accountLink}`;
+    const adminLinks = '<a href="#/admin" data-path="/admin"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a><a href="#/admin/teachers" data-path="/admin/teachers"><i data-lucide="users-round"></i><span>Teacher List</span></a><a href="#/admin/activities" data-path="/admin/activities"><i data-lucide="library-big"></i><span>Activities</span></a>';
+    const teacherLinks = '<a href="#/teacher" data-path="/teacher"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a><a href="#/teacher/activities" data-path="/teacher/activities"><i data-lucide="clipboard-list"></i><span>Activities</span></a><a href="#/teacher/students" data-path="/teacher/students"><i data-lucide="users-round"></i><span>Student List</span></a><a href="#/teacher/performance" data-path="/teacher/performance"><i data-lucide="chart-no-axes-combined"></i><span>Performance</span></a>';
+    const studentLinks = '<a href="#/student" data-path="/student"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a><a href="#/learn" data-path="/learn"><i data-lucide="book-open"></i><span>Learning</span></a><a href="#/quiz" data-path="/quiz"><i data-lucide="clipboard-check"></i><span>Quizzes</span></a>';
+    const roleLinks = profile?.role === 'admin' ? adminLinks : profile?.role === 'teacher' ? teacherLinks : studentLinks;
+    if (sectionLabel) sectionLabel.textContent = profile?.role === 'admin' ? 'Admin space' : profile?.role === 'teacher' ? 'Teacher space' : 'Learning space';
+    holder.innerHTML = `${roleLinks}${accountLink}`;
     createIcons({ icons });
     links = holder.querySelectorAll('a');
     applyActiveState();

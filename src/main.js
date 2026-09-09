@@ -108,7 +108,12 @@ async function init() {
       '/auth/reset-password': authPage,
       '/student': studentDashboardPage,
       '/teacher': teacherDashboardPage,
+      '/teacher/activities': teacherDashboardPage,
+      '/teacher/students': teacherDashboardPage,
+      '/teacher/performance': teacherDashboardPage,
       '/admin': adminDashboardPage,
+      '/admin/teachers': adminDashboardPage,
+      '/admin/activities': adminDashboardPage,
     };
     
     const pageContent = document.getElementById('page-content');

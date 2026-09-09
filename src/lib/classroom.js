@@ -134,6 +134,15 @@ export async function createQuiz(quiz) {
   return data;
 }
 
+export async function registerStudent({ fullName, email, password, gender, classroomId }) {
+  const { data, error } = await supabase.functions.invoke('register-student', {
+    body: { fullName, email, password, gender, classroomId }
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data?.student;
+}
+
 export async function updateQuiz(quizId, updates) {
   const { data, error } = await supabase.from('quizzes')
     .update(updates)
@@ -269,15 +278,18 @@ export async function getStudentAttempts() {
 
 export async function getTeacherStudents() {
   const { data, error } = await supabase.from('classroom_members')
-    .select('student_id, joined_at, profiles!classroom_members_student_id_fkey(id, full_name, email, created_at)')
+    .select('student_id, joined_at, profiles!classroom_members_student_id_fkey(id, full_name, email, gender, created_at)')
     .order('joined_at');
   if (error) throw error;
   return (data || []).map(item => ({ ...item.profiles, joined_at: item.joined_at }));
 }
 
 export async function updateStudentProfile(studentId, updates) {
+  const payload = {};
+  if (Object.hasOwn(updates, 'full_name')) payload.full_name = updates.full_name;
+  if (Object.hasOwn(updates, 'gender')) payload.gender = updates.gender;
   const { data, error } = await supabase.from('profiles')
-    .update({ full_name: updates.full_name })
+    .update(payload)
     .eq('id', studentId)
     .select()
     .single();
@@ -320,9 +332,9 @@ export async function createTeacherInvite({ fullName, email, inviteCode }) {
   return data;
 }
 
-export async function inviteTeacher({ fullName, email, inviteCode }) {
+export async function inviteTeacher({ fullName, email, inviteCode, gender = 'unspecified' }) {
   const { data, error } = await supabase.functions.invoke('invite-teacher', {
-    body: { fullName, email, inviteCode }
+    body: { fullName, email, inviteCode, gender }
   });
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
@@ -330,7 +342,31 @@ export async function inviteTeacher({ fullName, email, inviteCode }) {
 }
 
 export async function getAdminTeachers() {
-  const { data, error } = await supabase.from('profiles').select('id, full_name, email, created_at').eq('role', 'teacher').order('full_name');
+  const { data, error } = await supabase.from('profiles').select('id, full_name, email, gender, created_at').eq('role', 'teacher').order('full_name');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getAdminStudents() {
+  const { data, error } = await supabase.from('profiles').select('id, full_name, email, gender, created_at').eq('role', 'student').order('full_name');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getAdminClassrooms() {
+  const { data, error } = await supabase.from('classrooms').select('*, profiles!classrooms_teacher_id_fkey(full_name, email, gender)').order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getAdminQuizzes() {
+  const { data, error } = await supabase.from('quizzes').select('*, profiles!quizzes_teacher_id_fkey(full_name, email, gender), classrooms(name, join_code)').order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getAdminMemberships() {
+  const { data, error } = await supabase.from('classroom_members').select('classroom_id, student_id, joined_at');
   if (error) throw error;
   return data || [];
 }

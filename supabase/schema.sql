@@ -5,6 +5,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   email text,
+  gender text not null default 'unspecified' check (gender in ('female', 'male', 'other', 'unspecified')),
   role text not null default 'student' check (role in ('student', 'teacher', 'admin')),
   created_at timestamptz not null default now()
 );
@@ -112,6 +113,9 @@ for each row execute function public.prevent_duplicate_quiz_attempt();
 -- Compatibility for the earlier single-teacher draft schema.
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role in ('student', 'teacher', 'admin'));
+alter table public.profiles add column if not exists gender text not null default 'unspecified';
+alter table public.profiles drop constraint if exists profiles_gender_check;
+alter table public.profiles add constraint profiles_gender_check check (gender in ('female', 'male', 'other', 'unspecified'));
 alter table public.quizzes add column if not exists classroom_id uuid references public.classrooms(id) on delete cascade;
 alter table public.quizzes add column if not exists max_attempts integer not null default 1;
 alter table public.quizzes drop constraint if exists quizzes_max_attempts_check;
@@ -173,19 +177,24 @@ declare
   room_code text := upper(coalesce(new.raw_user_meta_data ->> 'classroom_code', ''));
   entered_invite_code text := upper(coalesce(new.raw_user_meta_data ->> 'teacher_invite_code', ''));
   display_name text := coalesce(new.raw_user_meta_data ->> 'full_name', '');
+  profile_gender text := lower(coalesce(new.raw_user_meta_data ->> 'gender', 'unspecified'));
   generated_room_code text;
 begin
+  if profile_gender not in ('female', 'male', 'other', 'unspecified') then
+    profile_gender := 'unspecified';
+  end if;
+
   select * into invite_record from public.teacher_invites
     where lower(email) = lower(new.email) and invite_code = entered_invite_code and used_at is null;
 
   if found then
-    insert into public.profiles (id, full_name, email, role) values (new.id, coalesce(nullif(display_name, ''), invite_record.full_name), new.email, 'teacher');
+    insert into public.profiles (id, full_name, email, gender, role) values (new.id, coalesce(nullif(display_name, ''), invite_record.full_name), new.email, profile_gender, 'teacher');
     update public.teacher_invites set used_at = now() where id = invite_record.id;
     generated_room_code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
     insert into public.classrooms (teacher_id, name, join_code)
       values (new.id, coalesce(nullif(invite_record.full_name, ''), 'Teacher') || '''s Room', generated_room_code);
   else
-    insert into public.profiles (id, full_name, email, role) values (new.id, display_name, new.email, 'student');
+    insert into public.profiles (id, full_name, email, gender, role) values (new.id, display_name, new.email, profile_gender, 'student');
     select id into room_id from public.classrooms where join_code = room_code and is_open = true;
     if room_id is not null then
       insert into public.classroom_members (classroom_id, student_id) values (room_id, new.id) on conflict do nothing;
