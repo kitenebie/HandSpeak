@@ -148,6 +148,22 @@ returns boolean language sql stable security definer set search_path = public as
   select exists (select 1 from public.classroom_members cm join public.classrooms c on c.id = cm.classroom_id where cm.classroom_id = target_classroom_id and cm.student_id = target_student_id and c.teacher_id = auth.uid());
 $$;
 
+create or replace function public.teacher_can_manage_attempt(target_attempt_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+    from public.quiz_attempts qa
+    left join public.quizzes q on q.id = qa.quiz_id
+    left join public.classrooms c on c.id = qa.classroom_id
+    where qa.id = target_attempt_id
+      and (
+        q.teacher_id = auth.uid()
+        or c.teacher_id = auth.uid()
+        or public.is_admin()
+      )
+  );
+$$;
+
 -- Registration assigns student membership from a room code, or teacher access from an admin invite.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -253,6 +269,12 @@ create policy "profiles read own, room teacher, or admin" on public.profiles for
 );
 drop policy if exists "profiles update own" on public.profiles;
 create policy "profiles update own" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id and role = 'student');
+drop policy if exists "teachers update classroom student profiles" on public.profiles;
+create policy "teachers update classroom student profiles" on public.profiles for update using (
+  public.teacher_can_view_student(id)
+) with check (
+  role = 'student' and public.teacher_can_view_student(id)
+);
 drop policy if exists "admins update profiles" on public.profiles;
 create policy "admins update profiles" on public.profiles for update using (public.is_admin()) with check (public.is_admin());
 
@@ -266,6 +288,8 @@ create policy "teachers update own classroom" on public.classrooms for update us
 
 drop policy if exists "students and room teachers view memberships" on public.classroom_members;
 create policy "students and room teachers view memberships" on public.classroom_members for select using (student_id = auth.uid() or public.is_admin() or public.is_current_user_classroom_teacher(classroom_id));
+drop policy if exists "teachers remove classroom members" on public.classroom_members;
+create policy "teachers remove classroom members" on public.classroom_members for delete using (public.is_admin() or public.is_current_user_classroom_teacher(classroom_id));
 
 drop policy if exists "room members see published quizzes" on public.quizzes;
 create policy "room members see published quizzes" on public.quizzes for select using (teacher_id = auth.uid() or public.is_admin() or (is_published and public.is_current_user_classroom_member(classroom_id)));
@@ -273,6 +297,8 @@ drop policy if exists "teachers create room quizzes" on public.quizzes;
 create policy "teachers create room quizzes" on public.quizzes for insert with check (public.is_teacher() and public.is_current_user_classroom_teacher(classroom_id));
 drop policy if exists "teachers update room quizzes" on public.quizzes;
 create policy "teachers update room quizzes" on public.quizzes for update using (teacher_id = auth.uid() or public.is_admin()) with check (teacher_id = auth.uid() or public.is_admin());
+drop policy if exists "teachers delete room quizzes" on public.quizzes;
+create policy "teachers delete room quizzes" on public.quizzes for delete using (teacher_id = auth.uid() or public.is_admin());
 
 drop policy if exists "room members see published materials" on public.classroom_materials;
 create policy "room members see published materials" on public.classroom_materials for select using (
@@ -291,3 +317,13 @@ drop policy if exists "students create own attempts" on public.quiz_attempts;
 create policy "students create own attempts" on public.quiz_attempts for insert with check (student_id = auth.uid() and (classroom_id is null or public.is_current_user_classroom_member(classroom_id)));
 drop policy if exists "students update own attempts" on public.quiz_attempts;
 create policy "students update own attempts" on public.quiz_attempts for update using (student_id = auth.uid()) with check (student_id = auth.uid());
+drop policy if exists "teachers update room attempts" on public.quiz_attempts;
+create policy "teachers update room attempts" on public.quiz_attempts for update using (
+  public.is_admin() or public.teacher_can_view_attempt(classroom_id, student_id) or public.teacher_can_manage_attempt(id)
+) with check (
+  public.is_admin() or public.teacher_can_view_attempt(classroom_id, student_id) or public.teacher_can_manage_attempt(id)
+);
+drop policy if exists "teachers delete room attempts" on public.quiz_attempts;
+create policy "teachers delete room attempts" on public.quiz_attempts for delete using (
+  public.is_admin() or public.teacher_can_view_attempt(classroom_id, student_id) or public.teacher_can_manage_attempt(id)
+);

@@ -134,6 +134,23 @@ export async function createQuiz(quiz) {
   return data;
 }
 
+export async function updateQuiz(quizId, updates) {
+  const { data, error } = await supabase.from('quizzes')
+    .update(updates)
+    .eq('id', quizId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteQuiz(quizId) {
+  const { error: attemptsError } = await supabase.from('quiz_attempts').delete().eq('quiz_id', quizId);
+  if (attemptsError) throw attemptsError;
+  const { error } = await supabase.from('quizzes').delete().eq('id', quizId);
+  if (error) throw error;
+}
+
 export async function createMaterial(material) {
   const session = await getSession();
   const { data, error } = await supabase.from('classroom_materials').insert({
@@ -196,6 +213,23 @@ export async function updateQuizAttempt(attemptId, { score, maxScore, accuracy, 
   return data;
 }
 
+export async function updateAttemptScore(attemptId, { score, maxScore }) {
+  const accuracy = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+  const { data, error } = await supabase.from('quiz_attempts').update({
+    score,
+    max_score: maxScore,
+    accuracy,
+    updated_at: new Date().toISOString()
+  }).eq('id', attemptId).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteAttempt(attemptId) {
+  const { error } = await supabase.from('quiz_attempts').delete().eq('id', attemptId);
+  if (error) throw error;
+}
+
 export async function submitQuizAttempt(attemptId, { score, maxScore, accuracy, detail = {} }) {
   if (!attemptId) return null;
   const now = new Date().toISOString();
@@ -239,6 +273,24 @@ export async function getTeacherStudents() {
     .order('joined_at');
   if (error) throw error;
   return (data || []).map(item => ({ ...item.profiles, joined_at: item.joined_at }));
+}
+
+export async function updateStudentProfile(studentId, updates) {
+  const { data, error } = await supabase.from('profiles')
+    .update({ full_name: updates.full_name })
+    .eq('id', studentId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function removeStudentFromClassroom(classroomId, studentId) {
+  const { error } = await supabase.from('classroom_members')
+    .delete()
+    .eq('classroom_id', classroomId)
+    .eq('student_id', studentId);
+  if (error) throw error;
 }
 
 export async function getTeacherAttempts() {

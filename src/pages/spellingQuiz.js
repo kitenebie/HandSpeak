@@ -23,6 +23,15 @@ let currentFps = 0;
 let activeAttemptId = null;
 let attemptFinalized = false;
 let progressSaveTimer = null;
+let transitionTimer = null;
+let activeAssignedQuiz = null;
+
+function setSubmitVisibility(button, isVisible) {
+  if (!button) return;
+  button.hidden = !isVisible;
+  button.style.display = isVisible ? '' : 'none';
+  button.setAttribute('aria-hidden', String(!isVisible));
+}
 
 function getAttemptPayload() {
   const results = quiz?.getResults();
@@ -81,6 +90,7 @@ function getAssignedQuiz() {
 }
 
 async function startQuiz(container, count, difficulty, assignedWords = null, assignedQuiz = null) {
+  activeAssignedQuiz = assignedQuiz;
   const words = assignedWords ? [...assignedWords].sort(() => Math.random() - 0.5).slice(0, count) : getRandomWords(count);
   quiz = new SpellingQuizEngine({ words });
   engine = new PredictionEngine(DIFFICULTY[difficulty] || DIFFICULTY.normal);
@@ -119,6 +129,11 @@ async function startQuiz(container, count, difficulty, assignedWords = null, ass
           </div>
 
           <div class="asl-word-progress" id="letter-progress" style="margin: 0 auto;"></div>
+          <div class="asl-quiz__actions">
+            <button id="spelling-prev" class="asl-btn asl-btn--secondary" type="button">Previous</button>
+            <button id="spelling-skip" class="asl-btn asl-btn--secondary" type="button">Skip</button>
+            <button id="spelling-submit" class="asl-btn asl-btn--primary" type="button" hidden style="display:none" aria-hidden="true">Submit quiz</button>
+          </div>
 
         </div>
 
@@ -134,6 +149,7 @@ async function startQuiz(container, count, difficulty, assignedWords = null, ass
   predictionDisplay = createPredictionDisplay(container.querySelector('#prediction-container'), { feedbackOnly: true });
 
   updateDisplay(container);
+  bindQuizControls(container);
 
   try {
     await camera.start();
@@ -152,6 +168,7 @@ function updateDisplay(container) {
   
   if (counterEl && current) counterEl.textContent = `Word ${current.wordNumber} / ${current.totalWords}`;
   if (wordEl && current) wordEl.textContent = current.word;
+  camera?.setFullscreenPrompt(current ? `Word ${current.wordNumber}: Spell ${current.word}${current.letter ? ` - sign ${current.letter}` : ''}` : '');
   
   if (progressEl && current) {
     progressEl.innerHTML = current.progress.map((p, idx) => {
@@ -164,6 +181,43 @@ function updateDisplay(container) {
       return `<div class="asl-word-progress__letter asl-word-progress__letter--pending">○ ${p.letter}</div>`;
     }).join('');
   }
+  answered = Boolean(current?.completed);
+  updateQuizControls(container);
+}
+
+function updateQuizControls(container) {
+  const current = quiz?.getCurrentTarget();
+  if (!current) return;
+  const previous = container.querySelector('#spelling-prev');
+  const submit = container.querySelector('#spelling-submit');
+  const isLastWord = current.wordNumber === current.totalWords;
+  if (previous) previous.disabled = current.wordNumber === 1;
+  setSubmitVisibility(submit, isLastWord);
+}
+
+function resetForCurrentWord(container) {
+  clearTimeout(transitionTimer);
+  if (engine) engine.reset();
+  if (predictionDisplay) predictionDisplay.reset();
+  camera?.clearFullscreenFeedback();
+  updateDisplay(container);
+}
+
+function bindQuizControls(container) {
+  container.querySelector('#spelling-prev')?.addEventListener('click', () => {
+    if (!quiz) return;
+    quiz.previousWord();
+    resetForCurrentWord(container);
+  });
+  container.querySelector('#spelling-skip')?.addEventListener('click', () => {
+    if (!quiz) return;
+    const current = quiz.getCurrentTarget();
+    if (current?.completed) quiz.nextWord();
+    else quiz.skipWord();
+    resetForCurrentWord(container);
+    scheduleAttemptSave();
+  });
+  container.querySelector('#spelling-submit')?.addEventListener('click', completeQuiz);
 }
 
 function onStablePrediction(result, container) {
@@ -175,44 +229,55 @@ function onStablePrediction(result, container) {
   if (answerResult.correct) {
     answered = true;
     predictionDisplay.showCorrect(answerResult.targetLetter);
+    camera?.showFullscreenFeedback(answerResult.wordComplete ? 'Correct!' : `Correct - next letter.`, 'success');
     quiz.advanceLetter();
     
     if (answerResult.wordComplete) {
       updateDisplay(container);
       
-      setTimeout(() => {
+      transitionTimer = setTimeout(() => {
         if (!quiz) return;
-        if (quiz.isComplete()) {
-          const results = quiz.getResults();
-          sessionStorage.setItem('quizResults', JSON.stringify({ type: 'spelling', quizId: assignedQuiz?.id || null, assignedTitle: assignedQuiz?.title || null, ...results }));
-          saveQuizResult('spelling', results);
-          if (activeAttemptId) {
-            finalizeAttempt().catch(error => console.warn('Could not submit cloud attempt:', error.message));
-          } else {
-            saveAttempt({ quizId: assignedQuiz?.id, classroomId: assignedQuiz?.classroom_id || null, quizType: 'spelling', score: results.score, maxScore: results.maxScore, accuracy: results.accuracy, detail: { mistakes: results.mistakes, words_completed: results.wordsCompleted } }).catch(error => console.warn('Could not save cloud attempt:', error.message));
-          }
-          if (assignedQuiz) sessionStorage.removeItem('assignedQuiz');
-          navigate('#/quiz/results');
+        const current = quiz.getCurrentTarget();
+        if (current?.wordNumber === current?.totalWords) {
+          updateQuizControls(container);
         } else {
           quiz.nextWord();
           if (engine) engine.reset();
           if (predictionDisplay) predictionDisplay.reset();
+          camera?.clearFullscreenFeedback();
           answered = false;
           updateDisplay(container);
         }
       }, 1500);
     } else {
       updateDisplay(container);
+      answered = true;
       setTimeout(() => {
         if (engine) engine.reset();
         if (predictionDisplay) predictionDisplay.reset();
+        camera?.clearFullscreenFeedback();
         answered = false;
         updateDisplay(container);
       }, 1000);
     }
   } else if (result.rawPrediction && result.rawPrediction.isValidLetter) {
     predictionDisplay.showIncorrect(answerResult.targetLetter, answerResult.detectedLetter);
+    camera?.showFullscreenFeedback('Wrong sign - try again.', 'error');
   }
+}
+
+function completeQuiz() {
+  if (!quiz) return;
+  const results = quiz.getResults();
+  sessionStorage.setItem('quizResults', JSON.stringify({ type: 'spelling', quizId: activeAssignedQuiz?.id || null, assignedTitle: activeAssignedQuiz?.title || null, ...results }));
+  saveQuizResult('spelling', results);
+  if (activeAttemptId) {
+    finalizeAttempt().catch(error => console.warn('Could not submit cloud attempt:', error.message));
+  } else {
+    saveAttempt({ quizId: activeAssignedQuiz?.id, classroomId: activeAssignedQuiz?.classroom_id || null, quizType: 'spelling', score: results.score, maxScore: results.maxScore, accuracy: results.accuracy, detail: { mistakes: results.mistakes, words_completed: results.wordsCompleted, total_words: results.totalWords } }).catch(error => console.warn('Could not save cloud attempt:', error.message));
+  }
+  if (activeAssignedQuiz) sessionStorage.removeItem('assignedQuiz');
+  navigate('#/quiz/results');
 }
 
 function startInferenceLoop(onStablePredictionCallback) {
@@ -283,6 +348,7 @@ export function unmount() {
   handleQuizExit();
   window.removeEventListener('pagehide', handleQuizExit);
   clearTimeout(progressSaveTimer);
+  clearTimeout(transitionTimer);
   if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
   if (camera) { camera.stop(); camera.destroy(); camera = null; }
   if (predictionDisplay) { predictionDisplay.destroy(); predictionDisplay = null; }
@@ -291,4 +357,5 @@ export function unmount() {
   answered = false;
   activeAttemptId = null;
   attemptFinalized = false;
+  activeAssignedQuiz = null;
 }

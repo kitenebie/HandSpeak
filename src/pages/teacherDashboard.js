@@ -1,4 +1,17 @@
-import { createQuiz, getMyClassroom, getProfile, getTeacherAttempts, getTeacherQuizzes, getTeacherStudents } from '../lib/classroom.js';
+import {
+  createQuiz,
+  deleteAttempt,
+  deleteQuiz,
+  getMyClassroom,
+  getProfile,
+  getTeacherAttempts,
+  getTeacherQuizzes,
+  getTeacherStudents,
+  removeStudentFromClassroom,
+  updateAttemptScore,
+  updateQuiz,
+  updateStudentProfile
+} from '../lib/classroom.js';
 import { navigate } from '../router.js';
 import { WORDS } from '../data/words.js';
 import { getSupportedWordSigns, normalizeWordSign } from '../data/wordSigns.js';
@@ -16,6 +29,8 @@ const wordQuizTypeLabel = quiz => wordQuizType(quiz) === 'two_words' ? 'Two Word
 const getMaxAttempts = quiz => Math.max(1, Number(quiz?.max_attempts || 1));
 const ordinalAttempt = value => ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'][value - 1] || `Attempt ${value}`;
 const attemptDate = value => value ? new Date(value).toLocaleDateString() : 'In progress';
+const actionButton = (action, id, icon, label, variant = '') => `<button type="button" class="asl-icon-btn ${variant}" data-action="${action}" data-id="${escape(id)}" title="${label}" aria-label="${label}"><i data-lucide="${icon}"></i></button>`;
+let pendingTeacherMessage = null;
 
 function attemptsWithNumbers(attempts) {
   const counts = new Map();
@@ -37,13 +52,19 @@ function renderStudentAttemptHistory(students, attempts) {
       .sort((a, b) => new Date(b.completed_at || b.started_at || 0) - new Date(a.completed_at || a.started_at || 0));
     const attemptList = own.length ? own.map(attempt => `
       <div class="asl-attempt-tree__attempt">
-        <span>${escape(attempt.quizzes?.title || quizTypeLabel(attempt.quiz_type))}</span>
-        <strong>${ordinalAttempt(attempt.attemptNumber)} attempt</strong>
-        <small>${attempt.score}/${attempt.max_score} · ${Math.round(attempt.accuracy || 0)}% · ${attemptDate(attempt.completed_at)}</small>
+        <div class="asl-attempt-tree__main">
+          <span>${escape(attempt.quizzes?.title || quizTypeLabel(attempt.quiz_type))}</span>
+          <strong>${ordinalAttempt(attempt.attemptNumber)} attempt</strong>
+          <small>${attempt.score}/${attempt.max_score} · ${Math.round(attempt.accuracy || 0)}% · ${attemptDate(attempt.completed_at)}</small>
+        </div>
+        <div class="asl-table-actions">
+          ${actionButton('edit-attempt', attempt.id, 'pencil', 'Edit attempt score')}
+          ${actionButton('delete-attempt', attempt.id, 'trash-2', 'Delete attempt record', 'asl-icon-btn--danger')}
+        </div>
       </div>
     `).join('') : '<span class="asl-muted">No quiz attempts yet.</span>';
-    return `<tr><td>${escape(student.full_name || student.email)}</td><td><div class="asl-attempt-tree">${attemptList}</div></td></tr>`;
-  }).join('') || '<tr><td colspan="2" class="asl-empty">No students have registered yet.</td></tr>';
+    return `<tr><td>${escape(student.full_name || student.email)}</td><td><div class="asl-attempt-tree">${attemptList}</div></td><td><div class="asl-table-actions">${actionButton('edit-student', student.id, 'pencil', 'Edit student name')}${actionButton('delete-student', student.id, 'trash-2', 'Remove student from classroom', 'asl-icon-btn--danger')}</div></td></tr>`;
+  }).join('') || '<tr><td colspan="3" class="asl-empty">No students have registered yet.</td></tr>';
 }
 
 export async function mount(container) {
@@ -67,10 +88,16 @@ export async function mount(container) {
 function render(container, profile, quizzes, students, attempts, classroom, supportedWordSigns) {
   const attemptedStudents = new Set(attempts.map(a => a.student_id)).size;
   const average = attempts.length ? Math.round(attempts.reduce((sum, item) => sum + Number(item.accuracy || 0), 0) / attempts.length) : 0;
+  const quizzesById = new Map(quizzes.map(quiz => [quiz.id, quiz]));
+  const studentsById = new Map(students.map(student => [student.id, student]));
+  const attemptsById = new Map(attempts.map(attempt => [attempt.id, attempt]));
+  const actionMessage = pendingTeacherMessage;
+  pendingTeacherMessage = null;
   container.innerHTML = `
     <div class="asl-dashboard asl-container">
       <div class="asl-dashboard__heading"><div><span class="asl-eyebrow">Teacher panel</span><h1>${escape(profile.full_name || 'Teacher')}’s classroom</h1><p>Create protected randomized quizzes and keep an eye on every learner.</p></div><div class="asl-room-code"><span>Student room code</span><strong>${escape(classroom?.join_code || 'Not available')}</strong><small>Students use this code when registering.</small></div></div>
       <div class="asl-metric-grid"><div class="asl-metric"><strong>${students.length}</strong><span>Registered students</span></div><div class="asl-metric"><strong>${attemptedStudents}</strong><span>Students assessed</span></div><div class="asl-metric"><strong>${average}%</strong><span>Class average</span></div><div class="asl-metric"><strong>${quizzes.filter(q => q.is_published).length}</strong><span>Active quizzes</span></div></div>
+      <div id="teacher-action-message" class="asl-form__message ${actionMessage ? `asl-form__message--${actionMessage.type}` : ''}" aria-live="polite">${actionMessage ? escape(actionMessage.text) : ''}</div>
       <div class="asl-teacher-grid">
         <section class="asl-card"><h2>Create a quiz</h2><p class="asl-muted">Each student receives a randomized question order from the range you set.</p>
           <button type="button" class="asl-btn asl-btn--secondary asl-form-toggle" data-form-id="quiz-create-form" data-label="Create new quiz" aria-controls="quiz-create-form" aria-expanded="false">Create new quiz</button>
@@ -95,14 +122,14 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
             <div id="create-message" class="asl-form__message" aria-live="polite"></div><button class="asl-btn asl-btn--primary" type="submit">Create quiz</button>
           </form>
         </section>
-        <section class="asl-card"><h2>Student list &amp; progression</h2><p class="asl-muted">Every registered student, with their quiz activity and average score.</p><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Joined</th><th>Attempts</th><th>Average</th></tr></thead><tbody>${students.map(student => {
+        <section class="asl-card"><h2>Student list &amp; progression</h2><p class="asl-muted">Every registered student, with their quiz activity and average score.</p><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Joined</th><th>Attempts</th><th>Average</th><th>Actions</th></tr></thead><tbody>${students.map(student => {
           const own = attempts.filter(a => a.student_id === student.id); const avg = own.length ? Math.round(own.reduce((sum,a) => sum + Number(a.accuracy || 0),0) / own.length) : '—';
-          return `<tr><td>${escape(student.full_name || student.email)}</td><td>${new Date(student.created_at).toLocaleDateString()}</td><td>${own.length}</td><td>${avg === '—' ? avg : `${avg}%`}</td></tr>`;
-        }).join('') || '<tr><td colspan="4" class="asl-empty">No students have registered yet.</td></tr>'}</tbody></table></div>
+          return `<tr><td>${escape(student.full_name || student.email)}</td><td>${new Date(student.joined_at || student.created_at).toLocaleDateString()}</td><td>${own.length}</td><td>${avg === '—' ? avg : `${avg}%`}</td><td><div class="asl-table-actions">${actionButton('edit-student', student.id, 'pencil', 'Edit student name')}${actionButton('delete-student', student.id, 'trash-2', 'Remove student from classroom', 'asl-icon-btn--danger')}</div></td></tr>`;
+        }).join('') || '<tr><td colspan="5" class="asl-empty">No students have registered yet.</td></tr>'}</tbody></table></div>
         </section>
       </div>
-      <section class="asl-section"><h2>Quiz list</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Attempts</th><th>Status</th><th>Created</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}${q.quiz_type === 'word_sign' ? `<br><small>${wordQuizTypeLabel(q)}</small>` : ''}</td><td>${q.question_count}</td><td>${getMaxAttempts(q)}</td><td><span class="asl-status ${q.is_published ? 'asl-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="6" class="asl-empty">Create your first quiz above.</td></tr>'}</tbody></table></div></section>
-      <section class="asl-section"><h2>Student attempt history</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Recorded scores per attempt</th></tr></thead><tbody>${renderStudentAttemptHistory(students, attempts)}</tbody></table></div></section>
+      <section class="asl-section"><h2>Quiz list</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Attempts</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}${q.quiz_type === 'word_sign' ? `<br><small>${wordQuizTypeLabel(q)}</small>` : ''}</td><td>${q.question_count}</td><td>${getMaxAttempts(q)}</td><td><span class="asl-status ${q.is_published ? 'asl-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td><td><div class="asl-table-actions">${actionButton('edit-quiz', q.id, 'pencil', 'Edit quiz')}${actionButton('delete-quiz', q.id, 'trash-2', 'Delete quiz', 'asl-icon-btn--danger')}</div></td></tr>`).join('') || '<tr><td colspan="7" class="asl-empty">Create your first quiz above.</td></tr>'}</tbody></table></div></section>
+      <section class="asl-section"><h2>Student attempt history</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Recorded scores per attempt</th><th>Actions</th></tr></thead><tbody>${renderStudentAttemptHistory(students, attempts)}</tbody></table></div></section>
     </div>`;
 
   const drawerEntries = [];
@@ -147,6 +174,118 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
     drawer.querySelector('.asl-form-drawer__close').addEventListener('click', closeDrawers);
   });
   createIcons({ icons });
+
+  const setActionMessage = (text, typeName = 'success') => {
+    const message = container.querySelector('#teacher-action-message');
+    if (!message) return;
+    message.className = `asl-form__message asl-form__message--${typeName}`;
+    message.textContent = text;
+  };
+
+  if (container.__teacherActionHandler) container.removeEventListener('click', container.__teacherActionHandler);
+  const handleTeacherAction = async event => {
+    const button = event.target.closest('[data-action]');
+    if (!button || !container.contains(button)) return;
+    const { action, id } = button.dataset;
+    try {
+      if (action === 'edit-student') {
+        const student = studentsById.get(id);
+        if (!student) throw new Error('Student record was not found.');
+        const fullName = prompt('Student name', student.full_name || '');
+        if (fullName === null) return;
+        const trimmedName = fullName.trim();
+        if (!trimmedName) throw new Error('Student name cannot be empty.');
+        button.disabled = true;
+        await updateStudentProfile(id, { full_name: trimmedName });
+        pendingTeacherMessage = { text: 'Student updated.', type: 'success' };
+        await mount(container);
+        return;
+      }
+      if (action === 'delete-student') {
+        const student = studentsById.get(id);
+        if (!student) throw new Error('Student record was not found.');
+        if (!classroom) throw new Error('Classroom record was not found.');
+        if (!confirm(`Remove ${student.full_name || student.email} from this classroom?`)) return;
+        button.disabled = true;
+        await removeStudentFromClassroom(classroom.id, id);
+        pendingTeacherMessage = { text: 'Student removed from the classroom.', type: 'success' };
+        await mount(container);
+        return;
+      }
+      if (action === 'edit-quiz') {
+        const quiz = quizzesById.get(id);
+        if (!quiz) throw new Error('Quiz record was not found.');
+        const title = prompt('Quiz title', quiz.title);
+        if (title === null) return;
+        const maxAttempts = prompt('Allowed attempts per student (1-10)', String(getMaxAttempts(quiz)));
+        if (maxAttempts === null) return;
+        const questionCount = wordQuizType(quiz) === 'two_words'
+          ? String(quiz.question_count)
+          : prompt('Questions per student', String(quiz.question_count));
+        if (questionCount === null) return;
+        const nextAttempts = Number(maxAttempts);
+        const nextQuestionCount = Number(questionCount);
+        if (!title.trim()) throw new Error('Quiz title cannot be empty.');
+        if (!Number.isInteger(nextAttempts) || nextAttempts < 1 || nextAttempts > 10) throw new Error('Allowed attempts must be between 1 and 10.');
+        if (!Number.isInteger(nextQuestionCount) || nextQuestionCount < 1 || nextQuestionCount > 26) throw new Error('Questions per student must be between 1 and 26.');
+        const status = prompt('Quiz status: published or draft', quiz.is_published ? 'published' : 'draft');
+        if (status === null) return;
+        const normalizedStatus = status.trim().toLowerCase();
+        if (!['published', 'draft'].includes(normalizedStatus)) throw new Error('Quiz status must be published or draft.');
+        button.disabled = true;
+        await updateQuiz(id, {
+          title: title.trim(),
+          question_count: nextQuestionCount,
+          max_attempts: nextAttempts,
+          is_published: normalizedStatus === 'published'
+        });
+        pendingTeacherMessage = { text: 'Quiz updated.', type: 'success' };
+        await mount(container);
+        return;
+      }
+      if (action === 'delete-quiz') {
+        const quiz = quizzesById.get(id);
+        if (!quiz) throw new Error('Quiz record was not found.');
+        if (!confirm(`Delete "${quiz.title}" and its attempt records?`)) return;
+        button.disabled = true;
+        await deleteQuiz(id);
+        pendingTeacherMessage = { text: 'Quiz deleted.', type: 'success' };
+        await mount(container);
+        return;
+      }
+      if (action === 'edit-attempt') {
+        const attempt = attemptsById.get(id);
+        if (!attempt) throw new Error('Attempt record was not found.');
+        const score = prompt('Score', String(attempt.score));
+        if (score === null) return;
+        const maxScore = prompt('Max score', String(attempt.max_score));
+        if (maxScore === null) return;
+        const nextScore = Number(score);
+        const nextMaxScore = Number(maxScore);
+        if (!Number.isInteger(nextScore) || nextScore < 0) throw new Error('Score must be 0 or higher.');
+        if (!Number.isInteger(nextMaxScore) || nextMaxScore < 1) throw new Error('Max score must be at least 1.');
+        if (nextScore > nextMaxScore) throw new Error('Score cannot exceed max score.');
+        button.disabled = true;
+        await updateAttemptScore(id, { score: nextScore, maxScore: nextMaxScore });
+        pendingTeacherMessage = { text: 'Attempt score updated.', type: 'success' };
+        await mount(container);
+        return;
+      }
+      if (action === 'delete-attempt') {
+        if (!attemptsById.has(id)) throw new Error('Attempt record was not found.');
+        if (!confirm('Delete this attempt record?')) return;
+        button.disabled = true;
+        await deleteAttempt(id);
+        pendingTeacherMessage = { text: 'Attempt record deleted.', type: 'success' };
+        await mount(container);
+      }
+    } catch (error) {
+      setActionMessage(error.message || 'Action failed.', 'error');
+      button.disabled = false;
+    }
+  };
+  container.__teacherActionHandler = handleTeacherAction;
+  container.addEventListener('click', handleTeacherAction);
 
   const form = container.querySelector('#quiz-create-form');
   const type = container.querySelector('#quiz-type');

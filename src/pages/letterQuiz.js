@@ -22,6 +22,15 @@ let currentFps = 0;
 let activeAttemptId = null;
 let attemptFinalized = false;
 let progressSaveTimer = null;
+let transitionTimer = null;
+let activeAssignedQuiz = null;
+
+function setSubmitVisibility(button, isVisible) {
+  if (!button) return;
+  button.hidden = !isVisible;
+  button.style.display = isVisible ? '' : 'none';
+  button.setAttribute('aria-hidden', String(!isVisible));
+}
 
 function getAttemptPayload() {
   const results = quiz?.getResults();
@@ -81,6 +90,7 @@ function getAssignedQuiz() {
 }
 
 async function startQuiz(container, questionCount, difficulty, questions = null, assignedQuiz = null) {
+  activeAssignedQuiz = assignedQuiz;
   quiz = new LetterQuizEngine({ questionCount, difficulty, questions });
   engine = new PredictionEngine(DIFFICULTY[difficulty] || DIFFICULTY.normal);
   answered = false;
@@ -116,6 +126,11 @@ async function startQuiz(container, questionCount, difficulty, questions = null,
             <span style="color: var(--color-text-light); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;">Show the sign for</span>
             <div class="asl-target-letter" id="target-letter-display" style="margin: 0.5rem 0;"></div>
           </div>
+          <div class="asl-quiz__actions">
+            <button id="letter-prev" class="asl-btn asl-btn--secondary" type="button">Previous</button>
+            <button id="letter-skip" class="asl-btn asl-btn--secondary" type="button">Skip</button>
+            <button id="letter-submit" class="asl-btn asl-btn--primary" type="button" hidden style="display:none" aria-hidden="true">Submit quiz</button>
+          </div>
 
         </div>
 
@@ -131,6 +146,7 @@ async function startQuiz(container, questionCount, difficulty, questions = null,
   predictionDisplay = createPredictionDisplay(container.querySelector('#prediction-container'), { feedbackOnly: true });
 
   updateQuestionDisplay(container);
+  bindQuizControls(container);
 
   try {
     await camera.start();
@@ -148,6 +164,44 @@ function updateQuestionDisplay(container) {
   
   if (counterEl && current) counterEl.textContent = `Question ${current.questionNumber} / ${current.totalQuestions}`;
   if (targetEl && current) targetEl.textContent = current.letter;
+  camera?.setFullscreenPrompt(current ? `Question ${current.questionNumber}: Show the sign for ${current.letter}` : '');
+  answered = Boolean(current?.correct);
+  updateQuizControls(container);
+}
+
+function updateQuizControls(container) {
+  const current = quiz?.getCurrentQuestion();
+  if (!current) return;
+  const previous = container.querySelector('#letter-prev');
+  const submit = container.querySelector('#letter-submit');
+  const isLastQuestion = current.questionNumber === current.totalQuestions;
+  if (previous) previous.disabled = current.questionNumber === 1;
+  setSubmitVisibility(submit, isLastQuestion);
+}
+
+function resetForCurrentQuestion(container) {
+  clearTimeout(transitionTimer);
+  if (engine) engine.reset();
+  if (predictionDisplay) predictionDisplay.reset();
+  camera?.clearFullscreenFeedback();
+  updateQuestionDisplay(container);
+}
+
+function bindQuizControls(container) {
+  container.querySelector('#letter-prev')?.addEventListener('click', () => {
+    if (!quiz) return;
+    quiz.previousQuestion();
+    resetForCurrentQuestion(container);
+  });
+  container.querySelector('#letter-skip')?.addEventListener('click', () => {
+    if (!quiz) return;
+    const current = quiz.getCurrentQuestion();
+    if (current?.correct) quiz.nextQuestion();
+    else quiz.skipQuestion();
+    resetForCurrentQuestion(container);
+    scheduleAttemptSave();
+  });
+  container.querySelector('#letter-submit')?.addEventListener('click', completeQuiz);
 }
 
 function onStablePrediction(result, container) {
@@ -159,32 +213,41 @@ function onStablePrediction(result, container) {
   if (answerResult.correct) {
     answered = true;
     predictionDisplay.showCorrect(result.label);
+    camera?.showFullscreenFeedback('Correct!', 'success');
     updateQuestionDisplay(container);
 
-    setTimeout(() => {
+    transitionTimer = setTimeout(() => {
       if (!quiz) return;
-      if (quiz.isComplete()) {
-        const results = quiz.getResults();
-        sessionStorage.setItem('quizResults', JSON.stringify({ type: 'letter', quizId: assignedQuiz?.id || null, assignedTitle: assignedQuiz?.title || null, ...results }));
-        saveQuizResult('letter', results);
-        if (activeAttemptId) {
-          finalizeAttempt().catch(error => console.warn('Could not submit cloud attempt:', error.message));
-        } else {
-          saveAttempt({ quizId: assignedQuiz?.id, classroomId: assignedQuiz?.classroom_id || null, quizType: 'alphabet', score: results.score, maxScore: results.maxScore, accuracy: results.accuracy, detail: { mistakes: results.mistakes, total_questions: results.totalQuestions } }).catch(error => console.warn('Could not save cloud attempt:', error.message));
-        }
-        if (assignedQuiz) sessionStorage.removeItem('assignedQuiz');
-        navigate('#/quiz/results');
+      const current = quiz.getCurrentQuestion();
+      if (current?.questionNumber === current?.totalQuestions) {
+        updateQuizControls(container);
       } else {
         quiz.nextQuestion();
         if (engine) engine.reset();
         if (predictionDisplay) predictionDisplay.reset();
+        camera?.clearFullscreenFeedback();
         answered = false;
         updateQuestionDisplay(container);
       }
     }, 1500);
   } else if (result.rawPrediction && result.rawPrediction.isValidLetter) {
     predictionDisplay.showIncorrect(answerResult.targetLetter, answerResult.detectedLetter);
+    camera?.showFullscreenFeedback('Wrong sign - try again.', 'error');
   }
+}
+
+function completeQuiz() {
+  if (!quiz) return;
+  const results = quiz.getResults();
+  sessionStorage.setItem('quizResults', JSON.stringify({ type: 'letter', quizId: activeAssignedQuiz?.id || null, assignedTitle: activeAssignedQuiz?.title || null, ...results }));
+  saveQuizResult('letter', results);
+  if (activeAttemptId) {
+    finalizeAttempt().catch(error => console.warn('Could not submit cloud attempt:', error.message));
+  } else {
+    saveAttempt({ quizId: activeAssignedQuiz?.id, classroomId: activeAssignedQuiz?.classroom_id || null, quizType: 'alphabet', score: results.score, maxScore: results.maxScore, accuracy: results.accuracy, detail: { mistakes: results.mistakes, total_questions: results.totalQuestions } }).catch(error => console.warn('Could not save cloud attempt:', error.message));
+  }
+  if (activeAssignedQuiz) sessionStorage.removeItem('assignedQuiz');
+  navigate('#/quiz/results');
 }
 
 function startInferenceLoop(onStablePredictionCallback) {
@@ -255,6 +318,7 @@ export function unmount() {
   handleQuizExit();
   window.removeEventListener('pagehide', handleQuizExit);
   clearTimeout(progressSaveTimer);
+  clearTimeout(transitionTimer);
   if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
   if (camera) { camera.stop(); camera.destroy(); camera = null; }
   if (predictionDisplay) { predictionDisplay.destroy(); predictionDisplay = null; }
@@ -263,4 +327,5 @@ export function unmount() {
   answered = false;
   activeAttemptId = null;
   attemptFinalized = false;
+  activeAssignedQuiz = null;
 }

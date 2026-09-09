@@ -92,6 +92,12 @@ p { margin-bottom: 1rem; }
 .asl-camera__viewport { position: relative; border-radius: var(--radius-md); overflow: hidden; background: #000; aspect-ratio: 4/3; width: 100%; }
 .asl-camera__video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
 .asl-camera__canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
+.asl-camera__fullscreen-prompt, .asl-camera__fullscreen-feedback { position: absolute; left: 50%; z-index: 11; display: none; max-width: min(92%, 820px); transform: translateX(-50%); border: 1px solid rgba(255,255,255,.32); border-radius: 12px; background: rgba(15, 23, 42, .74); color: #fff; text-align: center; box-shadow: 0 12px 28px rgba(0,0,0,.28); pointer-events: none; }
+.asl-camera__fullscreen-prompt { top: max(18px, env(safe-area-inset-top)); padding: .8rem 1.1rem; font-size: clamp(1.15rem, 3vw, 2rem); font-weight: 800; }
+.asl-camera__fullscreen-feedback { bottom: max(22px, env(safe-area-inset-bottom)); padding: .85rem 1.25rem; font-size: clamp(1rem, 2.5vw, 1.6rem); font-weight: 800; }
+.asl-camera__fullscreen-feedback--success { background: rgba(22, 163, 74, .88); border-color: rgba(187, 247, 208, .85); }
+.asl-camera__fullscreen-feedback--error { background: rgba(220, 38, 38, .88); border-color: rgba(254, 202, 202, .85); }
+.asl-camera__viewport:fullscreen .asl-camera__fullscreen-prompt:not([hidden]), .asl-camera__viewport:fullscreen .asl-camera__fullscreen-feedback:not([hidden]), .asl-camera__viewport--expanded .asl-camera__fullscreen-prompt:not([hidden]), .asl-camera__viewport--expanded .asl-camera__fullscreen-feedback:not([hidden]) { display: block; }
 .asl-camera__countdown { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; background: rgba(15, 23, 42, 0.38); color: #fff; font-size: clamp(4rem, 18vw, 8rem); font-weight: 800; line-height: 1; text-shadow: 0 8px 24px rgba(0,0,0,0.45); pointer-events: none; }
 .asl-camera__countdown[hidden] { display: none; }
 .asl-camera__fullscreen-btn { position: absolute; top: 12px; right: 12px; z-index: 12; display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid rgba(255,255,255,.38); border-radius: 10px; background: rgba(15, 23, 42, .68); color: #fff; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,.28); transition: var(--transition); }
@@ -208,6 +214,8 @@ p { margin-bottom: 1rem; }
 .asl-quiz__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
 .asl-quiz__question-counter { font-size: 0.9rem; color: var(--color-text-light); font-weight: 500; }
 .asl-quiz__score { font-size: 1.25rem; font-weight: 700; color: var(--color-primary); }
+.asl-quiz__actions { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; margin-top: 1rem; }
+.asl-quiz__actions .asl-btn { flex: 1 1 130px; }
 
 .asl-results { text-align: center; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
 .asl-results__title { font-size: 2rem; margin-bottom: 0.5rem; }
@@ -276,8 +284,17 @@ p { margin-bottom: 1rem; }
 .asl-table th, .asl-table td { padding: .85rem 1rem; text-align: left; border-bottom: 1px solid var(--color-border); font-size: .9rem; }
 .asl-table th { background: #fbfbff; color: var(--color-text-light); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
 .asl-table tr:last-child td { border-bottom: 0; }
+.asl-table-actions { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
+.asl-icon-btn { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--color-border); border-radius: 8px; background: #fff; color: var(--color-primary); cursor: pointer; transition: var(--transition); }
+.asl-icon-btn:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+.asl-icon-btn--danger { color: var(--color-danger); }
+.asl-icon-btn--danger:hover { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+.asl-icon-btn:disabled { cursor: not-allowed; opacity: .55; }
+.asl-icon-btn:focus-visible { outline: 3px solid rgba(37,99,235,.24); outline-offset: 2px; }
+.asl-icon-btn svg { width: 17px; height: 17px; stroke-width: 2.35; }
 .asl-attempt-tree { display: grid; gap: .55rem; min-width: 240px; }
-.asl-attempt-tree__attempt { display: grid; gap: .12rem; padding: .65rem .75rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fbfdff; }
+.asl-attempt-tree__attempt { display: flex; align-items: center; justify-content: space-between; gap: .8rem; padding: .65rem .75rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fbfdff; }
+.asl-attempt-tree__main { display: grid; gap: .12rem; min-width: 0; }
 .asl-attempt-tree__attempt span { color: var(--color-text); font-weight: 650; }
 .asl-attempt-tree__attempt strong { color: var(--color-primary); font-size: .86rem; }
 .asl-attempt-tree__attempt small { color: var(--color-text-light); }

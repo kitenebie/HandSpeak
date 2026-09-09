@@ -9,9 +9,9 @@ export function calculateLetterQuizScore(correct, total) {
   return { score, maxScore, accuracy };
 }
 
-export function calculateSpellingScore(lettersCorrect, totalLetters, wordsCompleted) {
+export function calculateSpellingScore(lettersCorrect, totalLetters, wordsCompleted, totalWords = wordsCompleted) {
   const score = (lettersCorrect * 10) + (wordsCompleted * 20);
-  const maxScore = (totalLetters * 10) + (wordsCompleted * 20);
+  const maxScore = (totalLetters * 10) + (totalWords * 20);
   const accuracy = totalLetters > 0 ? Math.round((lettersCorrect / totalLetters) * 100) : 0;
   return { score, maxScore, accuracy };
 }

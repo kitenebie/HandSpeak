@@ -10,6 +10,8 @@ export function createCamera(container) {
     <div class="asl-camera__viewport">
       <video class="asl-camera__video" autoplay playsinline muted></video>
       <canvas class="asl-camera__canvas"></canvas>
+      <div class="asl-camera__fullscreen-prompt" hidden></div>
+      <div class="asl-camera__fullscreen-feedback" hidden aria-live="polite"></div>
       <div class="asl-camera__countdown" hidden aria-live="assertive"></div>
       <button class="asl-camera__fullscreen-btn" type="button" aria-label="Expand camera" aria-pressed="false" title="Expand camera">
         <i data-lucide="maximize-2"></i>
@@ -23,6 +25,8 @@ export function createCamera(container) {
   const viewport = el.querySelector('.asl-camera__viewport');
   const video = el.querySelector('.asl-camera__video');
   const canvas = el.querySelector('.asl-camera__canvas');
+  const fullscreenPrompt = el.querySelector('.asl-camera__fullscreen-prompt');
+  const fullscreenFeedback = el.querySelector('.asl-camera__fullscreen-feedback');
   const countdownDiv = el.querySelector('.asl-camera__countdown');
   const fullscreenBtn = el.querySelector('.asl-camera__fullscreen-btn');
   const errorDiv = el.querySelector('.asl-camera__error');
@@ -209,6 +213,20 @@ export function createCamera(container) {
     showStatus(text) {
       statusDiv.textContent = text;
     },
+    setFullscreenPrompt(text) {
+      fullscreenPrompt.hidden = !text;
+      fullscreenPrompt.textContent = text || '';
+    },
+    showFullscreenFeedback(message, type = '') {
+      fullscreenFeedback.hidden = !message;
+      fullscreenFeedback.className = `asl-camera__fullscreen-feedback${type ? ` asl-camera__fullscreen-feedback--${type}` : ''}`;
+      fullscreenFeedback.textContent = message || '';
+    },
+    clearFullscreenFeedback() {
+      fullscreenFeedback.hidden = true;
+      fullscreenFeedback.className = 'asl-camera__fullscreen-feedback';
+      fullscreenFeedback.textContent = '';
+    },
     showCountdown(value) {
       countdownDiv.hidden = false;
       countdownDiv.textContent = value;
@@ -223,6 +241,8 @@ export function createCamera(container) {
     destroy() {
       this.stop();
       this.hideCountdown();
+      this.setFullscreenPrompt('');
+      this.clearFullscreenFeedback();
       fullscreenBtn.removeEventListener('click', toggleExpanded);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       if (document.fullscreenElement === viewport && document.exitFullscreen) {

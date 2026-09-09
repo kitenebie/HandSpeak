@@ -41,6 +41,13 @@ let transitionTimer = null;
 let pageContainer = null;
 let activeWordQuizType = 'single_word';
 
+function setSubmitVisibility(button, isVisible) {
+  if (!button) return;
+  button.hidden = !isVisible;
+  button.style.display = isVisible ? '' : 'none';
+  button.setAttribute('aria-hidden', String(!isVisible));
+}
+
 const escape = (value = '') => String(value).replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 })[char]);
@@ -173,6 +180,11 @@ async function renderQuiz(container) {
           <p class="asl-muted asl-text-center">Keep your upper body and both hands inside the frame. Press the button, then perform the sign naturally.</p>
           <button id="word-sign-capture" class="asl-btn asl-btn--primary asl-btn--lg" type="button" disabled>Preparing camera…</button>
           <div id="word-sign-status" class="asl-form__message" aria-live="polite">Loading hand and posture tracking…</div>
+          <div class="asl-quiz__actions">
+            <button id="word-sign-prev" class="asl-btn asl-btn--secondary" type="button">Previous</button>
+            <button id="word-sign-skip" class="asl-btn asl-btn--secondary" type="button">Skip</button>
+            <button id="word-sign-submit" class="asl-btn asl-btn--primary" type="button" hidden style="display:none" aria-hidden="true">Submit quiz</button>
+          </div>
         </section>
         <div class="asl-practice__camera"><div id="word-sign-camera" style="width:100%"></div></div>
       </div>
@@ -180,6 +192,7 @@ async function renderQuiz(container) {
 
   camera = createCamera(container.querySelector('#word-sign-camera'));
   updateQuestionDisplay();
+  bindQuizControls();
   const captureButton = container.querySelector('#word-sign-capture');
   captureButton.addEventListener('click', beginCapture);
 
@@ -203,6 +216,7 @@ function updateQuestionDisplay() {
   const sequence = pageContainer.querySelector('#word-sign-sequence');
   if (counter) counter.textContent = `Question ${current.questionNumber} / ${current.totalQuestions}`;
   if (target) target.textContent = current.word;
+  camera?.setFullscreenPrompt(`Question ${current.questionNumber}: Sign ${current.word}`);
   if (sequence) {
     sequence.innerHTML = current.progress.map((item, index) => `
       ${index ? '<span class="asl-word-sequence__arrow" aria-hidden="true">→</span>' : ''}
@@ -210,6 +224,58 @@ function updateQuestionDisplay() {
         ${item.completed ? '<span aria-hidden="true">✓</span> ' : ''}${escape(item.word)}
       </span>`).join('');
   }
+  updateQuizControls();
+}
+
+function updateQuizControls() {
+  const current = quiz?.getCurrentQuestion();
+  if (!current || !pageContainer) return;
+  const previous = pageContainer.querySelector('#word-sign-prev');
+  const submit = pageContainer.querySelector('#word-sign-submit');
+  const isLastQuestion = current.questionNumber === current.totalQuestions;
+  if (previous) previous.disabled = current.questionNumber === 1;
+  setSubmitVisibility(submit, isLastQuestion);
+}
+
+function resetCaptureState() {
+  clearTimeout(transitionTimer);
+  clearCountdown();
+  capture = null;
+  processing = false;
+  camera?.clearFullscreenFeedback();
+}
+
+function resetForCurrentQuestion() {
+  resetCaptureState();
+  updateQuestionDisplay();
+  const current = quiz?.getCurrentQuestion();
+  if (current?.correct) {
+    setStatus('This question is already answered.');
+    enableCaptureButton('Answered');
+    const button = pageContainer?.querySelector('#word-sign-capture');
+    if (button) button.disabled = true;
+    return;
+  }
+  const expectedWord = current?.expectedWord;
+  setStatus(`Ready. Sign ${expectedWord}.`);
+  enableCaptureButton();
+}
+
+function bindQuizControls() {
+  pageContainer.querySelector('#word-sign-prev')?.addEventListener('click', () => {
+    if (!quiz) return;
+    quiz.previousQuestion();
+    resetForCurrentQuestion();
+  });
+  pageContainer.querySelector('#word-sign-skip')?.addEventListener('click', () => {
+    if (!quiz) return;
+    const current = quiz.getCurrentQuestion();
+    if (current?.correct) quiz.nextQuestion();
+    else quiz.skipQuestion();
+    resetForCurrentQuestion();
+    scheduleAttemptSave();
+  });
+  pageContainer.querySelector('#word-sign-submit')?.addEventListener('click', completeQuiz);
 }
 
 function setStatus(message, type = '') {
@@ -324,6 +390,7 @@ async function finishCapture() {
   try {
     if (completedCapture.validFrames < MIN_VALID_FRAMES) {
       setStatus('Not enough hand and posture landmarks were visible. Adjust your framing and record again.', 'error');
+      camera?.showFullscreenFeedback('Not enough visible landmarks.', 'error');
       enableCaptureButton('Try recording again');
       return;
     }
@@ -335,9 +402,11 @@ async function finishCapture() {
       if (answer.questionComplete) {
         scheduleAttemptSave();
         setStatus(`Correct! ${answer.targetPhrase} (${Math.round(prediction.confidence * 100)}% on the final sign)`, 'success');
-        transitionTimer = setTimeout(moveToNextQuestion, 1800);
+        camera?.showFullscreenFeedback('Correct!', 'success');
+        transitionTimer = setTimeout(moveAfterAnsweredQuestion, 1800);
       } else {
         setStatus(`${prediction.label} detected. Next, sign ${answer.nextExpectedWord}.`, 'success');
+        camera?.showFullscreenFeedback(`Correct - next: ${answer.nextExpectedWord}.`, 'success');
         enableCaptureButton(`Record ${answer.nextExpectedWord} (3 seconds)`);
       }
     } else {
@@ -346,16 +415,19 @@ async function finishCapture() {
         : `Detected ${prediction.label} (${Math.round(prediction.confidence * 100)}%)`;
       if (answer.retryRequired) {
         setStatus(`${detected}. Expected ${answer.targetWord}. Try that word again.`, 'error');
+        camera?.showFullscreenFeedback('Wrong sign - try again.', 'error');
         enableCaptureButton(`Try ${answer.targetWord} again`);
       } else {
         scheduleAttemptSave();
         setStatus(`${detected}. The correct answer was ${answer.targetWord}.`, 'error');
-        transitionTimer = setTimeout(moveToNextQuestion, 1800);
+        camera?.showFullscreenFeedback('Wrong sign.', 'error');
+        transitionTimer = setTimeout(moveAfterAnsweredQuestion, 1800);
       }
     }
   } catch (error) {
     console.error('Word-sign inference failed:', error);
     setStatus(`Could not analyze the sign: ${error.message}`, 'error');
+    camera?.showFullscreenFeedback('Could not analyze the sign.', 'error');
     enableCaptureButton('Try recording again');
   } finally {
     processing = false;
@@ -372,14 +444,25 @@ function enableCaptureButton(label = 'Record sign (3 seconds)') {
 function moveToNextQuestion() {
   if (!quiz) return;
   quiz.nextQuestion();
-  if (quiz.isComplete()) {
-    completeQuiz();
-    return;
-  }
+  camera?.clearFullscreenFeedback();
   updateQuestionDisplay();
   const expectedWord = quiz.getCurrentQuestion()?.expectedWord;
   setStatus(`Ready. Sign ${expectedWord}.`);
   enableCaptureButton();
+}
+
+function moveAfterAnsweredQuestion() {
+  const current = quiz?.getCurrentQuestion();
+  if (!current) return;
+  if (current.questionNumber === current.totalQuestions) {
+    updateQuizControls();
+    enableCaptureButton(current.correct ? 'Answered' : 'Try recording again');
+    const button = pageContainer?.querySelector('#word-sign-capture');
+    if (button && current.correct) button.disabled = true;
+    setStatus(current.correct ? 'Last question answered. Submit when you are ready.' : 'Last question done. Submit or record again.');
+    return;
+  }
+  moveToNextQuestion();
 }
 
 function completeQuiz() {
