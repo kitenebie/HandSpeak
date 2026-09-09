@@ -256,6 +256,19 @@ p { margin-bottom: 1rem; }
 .asl-form__message { min-height: 1.25rem; font-size: .9rem; }
 .asl-form__message--error { color: var(--color-danger); }
 .asl-form__message--success { color: var(--color-success); }
+.asl-modal-open { overflow: hidden; }
+.asl-modal-backdrop { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 1.25rem; background: rgba(15, 23, 42, .48); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.asl-modal-backdrop.is-open { opacity: 1; pointer-events: auto; }
+.asl-modal { width: min(100%, 520px); max-height: min(86vh, 720px); overflow-y: auto; background: #fff; border-radius: 14px; border: 1px solid var(--color-border); box-shadow: 0 22px 60px rgba(15, 23, 42, .28); padding: 1.5rem; }
+.asl-modal--confirm { width: min(100%, 460px); }
+.asl-modal__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--color-border); }
+.asl-modal__header h2 { margin: .15rem 0 .25rem; font-size: 1.35rem; }
+.asl-modal__header p { margin: 0; color: var(--color-text-light); font-size: .9rem; overflow-wrap: anywhere; }
+.asl-modal__close { display: grid; place-items: center; flex: 0 0 auto; width: 38px; height: 38px; border: 1px solid var(--color-border); border-radius: 9px; background: #fff; color: var(--color-text); cursor: pointer; }
+.asl-modal__close:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+.asl-modal__close svg { width: 20px; height: 20px; }
+.asl-modal__form { gap: 1rem; }
+.asl-modal__actions { display: flex; justify-content: flex-end; gap: .75rem; flex-wrap: wrap; }
 .asl-dashboard { padding-top: 1rem; }
 .asl-dashboard__heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
 .asl-dashboard__heading h1 { font-size: clamp(2rem, 4vw, 2.75rem); margin-bottom: .25rem; }

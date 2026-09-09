@@ -68,6 +68,7 @@ function renderStudentAttemptHistory(students, attempts) {
 }
 
 export async function mount(container) {
+  document.body.classList.remove('asl-modal-open');
   container.innerHTML = '<div class="asl-container"><div class="asl-card">Loading teacher panel…</div></div>';
   try {
     const profile = await getProfile();
@@ -182,6 +183,169 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
     message.textContent = text;
   };
 
+  const closeModal = () => {
+    container.querySelector('.asl-modal-backdrop')?.remove();
+    document.body.classList.remove('asl-modal-open');
+  };
+
+  const openEditModal = ({ title, description, body, onSubmit }) => {
+    closeModal();
+    const backdrop = document.createElement('div');
+    backdrop.className = 'asl-modal-backdrop is-open';
+    backdrop.innerHTML = `
+      <section class="asl-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-modal-title">
+        <div class="asl-modal__header">
+          <div><span class="asl-eyebrow">Edit record</span><h2 id="teacher-modal-title">${escape(title)}</h2>${description ? `<p>${escape(description)}</p>` : ''}</div>
+          <button type="button" class="asl-modal__close" aria-label="Close edit form"><i data-lucide="x"></i></button>
+        </div>
+        <form class="asl-form asl-modal__form">
+          ${body}
+          <div id="teacher-modal-message" class="asl-form__message" aria-live="polite"></div>
+          <div class="asl-modal__actions">
+            <button type="button" class="asl-btn asl-btn--secondary" data-modal-close>Cancel</button>
+            <button type="submit" class="asl-btn asl-btn--primary">Save changes</button>
+          </div>
+        </form>
+      </section>`;
+    container.append(backdrop);
+    document.body.classList.add('asl-modal-open');
+    createIcons({ icons });
+
+    const form = backdrop.querySelector('form');
+    const message = backdrop.querySelector('#teacher-modal-message');
+    const submitButton = form.querySelector('[type="submit"]');
+    const showModalError = error => {
+      message.className = 'asl-form__message asl-form__message--error';
+      message.textContent = error.message || 'Could not update record.';
+      submitButton.disabled = false;
+    };
+
+    backdrop.addEventListener('click', event => {
+      if (event.target === backdrop || event.target.closest('[data-modal-close], .asl-modal__close')) closeModal();
+    });
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      submitButton.disabled = true;
+      message.textContent = '';
+      try {
+        await onSubmit(new FormData(form));
+        closeModal();
+      } catch (error) {
+        showModalError(error);
+      }
+    });
+    setTimeout(() => form.querySelector('input:not([disabled]), select:not([disabled])')?.focus(), 80);
+  };
+
+  const openConfirmModal = ({ title, description, confirmLabel, onConfirm }) => {
+    closeModal();
+    const backdrop = document.createElement('div');
+    backdrop.className = 'asl-modal-backdrop is-open';
+    backdrop.innerHTML = `
+      <section class="asl-modal asl-modal--confirm" role="dialog" aria-modal="true" aria-labelledby="teacher-confirm-title">
+        <div class="asl-modal__header">
+          <div><span class="asl-eyebrow">Confirm action</span><h2 id="teacher-confirm-title">${escape(title)}</h2><p>${escape(description)}</p></div>
+          <button type="button" class="asl-modal__close" aria-label="Close confirmation"><i data-lucide="x"></i></button>
+        </div>
+        <div id="teacher-confirm-message" class="asl-form__message" aria-live="polite"></div>
+        <div class="asl-modal__actions">
+          <button type="button" class="asl-btn asl-btn--secondary" data-modal-close>Cancel</button>
+          <button type="button" class="asl-btn asl-btn--danger" data-confirm-action>${escape(confirmLabel)}</button>
+        </div>
+      </section>`;
+    container.append(backdrop);
+    document.body.classList.add('asl-modal-open');
+    createIcons({ icons });
+
+    const confirmButton = backdrop.querySelector('[data-confirm-action]');
+    const message = backdrop.querySelector('#teacher-confirm-message');
+    backdrop.addEventListener('click', event => {
+      if (event.target === backdrop || event.target.closest('[data-modal-close], .asl-modal__close')) closeModal();
+    });
+    confirmButton.addEventListener('click', async () => {
+      confirmButton.disabled = true;
+      message.textContent = '';
+      try {
+        await onConfirm();
+        closeModal();
+      } catch (error) {
+        message.className = 'asl-form__message asl-form__message--error';
+        message.textContent = error.message || 'Could not complete action.';
+        confirmButton.disabled = false;
+      }
+    });
+    setTimeout(() => confirmButton.focus(), 80);
+  };
+
+  const openStudentEditModal = student => {
+    openEditModal({
+      title: 'Student details',
+      description: student.email,
+      body: `<label>Student name<input name="fullName" required maxlength="120" value="${escape(student.full_name || '')}" placeholder="Student full name"></label>`,
+      onSubmit: async fields => {
+        const fullName = String(fields.get('fullName') || '').trim();
+        if (!fullName) throw new Error('Student name cannot be empty.');
+        await updateStudentProfile(student.id, { full_name: fullName });
+        pendingTeacherMessage = { text: 'Student updated.', type: 'success' };
+        await mount(container);
+      }
+    });
+  };
+
+  const openQuizEditModal = quiz => {
+    const isTwoWords = wordQuizType(quiz) === 'two_words';
+    openEditModal({
+      title: 'Quiz details',
+      description: quizTypeLabel(quiz.quiz_type),
+      body: `
+        <label>Quiz title<input name="title" required maxlength="100" value="${escape(quiz.title)}"></label>
+        <div class="asl-form-row">
+          <label>Questions per student<input name="questionCount" type="number" min="1" max="26" value="${quiz.question_count}" required ${isTwoWords ? 'readonly' : ''}></label>
+          <label>Allowed attempts<input name="maxAttempts" type="number" min="1" max="10" value="${getMaxAttempts(quiz)}" required></label>
+        </div>
+        <label>Status<select name="status" required><option value="published" ${quiz.is_published ? 'selected' : ''}>Published</option><option value="draft" ${!quiz.is_published ? 'selected' : ''}>Draft</option></select></label>`,
+      onSubmit: async fields => {
+        const title = String(fields.get('title') || '').trim();
+        const questionCount = Number(fields.get('questionCount'));
+        const maxAttempts = Number(fields.get('maxAttempts'));
+        const status = String(fields.get('status') || '').trim();
+        if (!title) throw new Error('Quiz title cannot be empty.');
+        if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 26) throw new Error('Questions per student must be between 1 and 26.');
+        if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) throw new Error('Allowed attempts must be between 1 and 10.');
+        await updateQuiz(quiz.id, {
+          title,
+          question_count: questionCount,
+          max_attempts: maxAttempts,
+          is_published: status === 'published'
+        });
+        pendingTeacherMessage = { text: 'Quiz updated.', type: 'success' };
+        await mount(container);
+      }
+    });
+  };
+
+  const openAttemptEditModal = attempt => {
+    openEditModal({
+      title: 'Attempt score',
+      description: `${attempt.profiles?.full_name || attempt.profiles?.email || 'Student'} · ${attempt.quizzes?.title || quizTypeLabel(attempt.quiz_type)}`,
+      body: `
+        <div class="asl-form-row">
+          <label>Score<input name="score" type="number" min="0" value="${attempt.score}" required></label>
+          <label>Max score<input name="maxScore" type="number" min="1" value="${attempt.max_score}" required></label>
+        </div>`,
+      onSubmit: async fields => {
+        const score = Number(fields.get('score'));
+        const maxScore = Number(fields.get('maxScore'));
+        if (!Number.isInteger(score) || score < 0) throw new Error('Score must be 0 or higher.');
+        if (!Number.isInteger(maxScore) || maxScore < 1) throw new Error('Max score must be at least 1.');
+        if (score > maxScore) throw new Error('Score cannot exceed max score.');
+        await updateAttemptScore(attempt.id, { score, maxScore });
+        pendingTeacherMessage = { text: 'Attempt score updated.', type: 'success' };
+        await mount(container);
+      }
+    });
+  };
+
   if (container.__teacherActionHandler) container.removeEventListener('click', container.__teacherActionHandler);
   const handleTeacherAction = async event => {
     const button = event.target.closest('[data-action]');
@@ -191,93 +355,65 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
       if (action === 'edit-student') {
         const student = studentsById.get(id);
         if (!student) throw new Error('Student record was not found.');
-        const fullName = prompt('Student name', student.full_name || '');
-        if (fullName === null) return;
-        const trimmedName = fullName.trim();
-        if (!trimmedName) throw new Error('Student name cannot be empty.');
-        button.disabled = true;
-        await updateStudentProfile(id, { full_name: trimmedName });
-        pendingTeacherMessage = { text: 'Student updated.', type: 'success' };
-        await mount(container);
+        openStudentEditModal(student);
         return;
       }
       if (action === 'delete-student') {
         const student = studentsById.get(id);
         if (!student) throw new Error('Student record was not found.');
         if (!classroom) throw new Error('Classroom record was not found.');
-        if (!confirm(`Remove ${student.full_name || student.email} from this classroom?`)) return;
-        button.disabled = true;
-        await removeStudentFromClassroom(classroom.id, id);
-        pendingTeacherMessage = { text: 'Student removed from the classroom.', type: 'success' };
-        await mount(container);
+        openConfirmModal({
+          title: 'Remove student?',
+          description: `${student.full_name || student.email} will be removed from this classroom.`,
+          confirmLabel: 'Remove student',
+          onConfirm: async () => {
+            await removeStudentFromClassroom(classroom.id, id);
+            pendingTeacherMessage = { text: 'Student removed from the classroom.', type: 'success' };
+            await mount(container);
+          }
+        });
         return;
       }
       if (action === 'edit-quiz') {
         const quiz = quizzesById.get(id);
         if (!quiz) throw new Error('Quiz record was not found.');
-        const title = prompt('Quiz title', quiz.title);
-        if (title === null) return;
-        const maxAttempts = prompt('Allowed attempts per student (1-10)', String(getMaxAttempts(quiz)));
-        if (maxAttempts === null) return;
-        const questionCount = wordQuizType(quiz) === 'two_words'
-          ? String(quiz.question_count)
-          : prompt('Questions per student', String(quiz.question_count));
-        if (questionCount === null) return;
-        const nextAttempts = Number(maxAttempts);
-        const nextQuestionCount = Number(questionCount);
-        if (!title.trim()) throw new Error('Quiz title cannot be empty.');
-        if (!Number.isInteger(nextAttempts) || nextAttempts < 1 || nextAttempts > 10) throw new Error('Allowed attempts must be between 1 and 10.');
-        if (!Number.isInteger(nextQuestionCount) || nextQuestionCount < 1 || nextQuestionCount > 26) throw new Error('Questions per student must be between 1 and 26.');
-        const status = prompt('Quiz status: published or draft', quiz.is_published ? 'published' : 'draft');
-        if (status === null) return;
-        const normalizedStatus = status.trim().toLowerCase();
-        if (!['published', 'draft'].includes(normalizedStatus)) throw new Error('Quiz status must be published or draft.');
-        button.disabled = true;
-        await updateQuiz(id, {
-          title: title.trim(),
-          question_count: nextQuestionCount,
-          max_attempts: nextAttempts,
-          is_published: normalizedStatus === 'published'
-        });
-        pendingTeacherMessage = { text: 'Quiz updated.', type: 'success' };
-        await mount(container);
+        openQuizEditModal(quiz);
         return;
       }
       if (action === 'delete-quiz') {
         const quiz = quizzesById.get(id);
         if (!quiz) throw new Error('Quiz record was not found.');
-        if (!confirm(`Delete "${quiz.title}" and its attempt records?`)) return;
-        button.disabled = true;
-        await deleteQuiz(id);
-        pendingTeacherMessage = { text: 'Quiz deleted.', type: 'success' };
-        await mount(container);
+        openConfirmModal({
+          title: 'Delete quiz?',
+          description: `"${quiz.title}" and its attempt records will be deleted.`,
+          confirmLabel: 'Delete quiz',
+          onConfirm: async () => {
+            await deleteQuiz(id);
+            pendingTeacherMessage = { text: 'Quiz deleted.', type: 'success' };
+            await mount(container);
+          }
+        });
         return;
       }
       if (action === 'edit-attempt') {
         const attempt = attemptsById.get(id);
         if (!attempt) throw new Error('Attempt record was not found.');
-        const score = prompt('Score', String(attempt.score));
-        if (score === null) return;
-        const maxScore = prompt('Max score', String(attempt.max_score));
-        if (maxScore === null) return;
-        const nextScore = Number(score);
-        const nextMaxScore = Number(maxScore);
-        if (!Number.isInteger(nextScore) || nextScore < 0) throw new Error('Score must be 0 or higher.');
-        if (!Number.isInteger(nextMaxScore) || nextMaxScore < 1) throw new Error('Max score must be at least 1.');
-        if (nextScore > nextMaxScore) throw new Error('Score cannot exceed max score.');
-        button.disabled = true;
-        await updateAttemptScore(id, { score: nextScore, maxScore: nextMaxScore });
-        pendingTeacherMessage = { text: 'Attempt score updated.', type: 'success' };
-        await mount(container);
+        openAttemptEditModal(attempt);
         return;
       }
       if (action === 'delete-attempt') {
-        if (!attemptsById.has(id)) throw new Error('Attempt record was not found.');
-        if (!confirm('Delete this attempt record?')) return;
-        button.disabled = true;
-        await deleteAttempt(id);
-        pendingTeacherMessage = { text: 'Attempt record deleted.', type: 'success' };
-        await mount(container);
+        const attempt = attemptsById.get(id);
+        if (!attempt) throw new Error('Attempt record was not found.');
+        openConfirmModal({
+          title: 'Delete attempt record?',
+          description: `${attempt.profiles?.full_name || attempt.profiles?.email || 'Student'}'s recorded score will be deleted.`,
+          confirmLabel: 'Delete attempt',
+          onConfirm: async () => {
+            await deleteAttempt(id);
+            pendingTeacherMessage = { text: 'Attempt record deleted.', type: 'success' };
+            await mount(container);
+          }
+        });
       }
     } catch (error) {
       setActionMessage(error.message || 'Action failed.', 'error');
@@ -374,4 +510,5 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
 }
 export function unmount() {
   document.body.classList.remove('asl-drawer-open');
+  document.body.classList.remove('asl-modal-open');
 }
