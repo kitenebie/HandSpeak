@@ -30,9 +30,22 @@ export function updateDebugPanel(data) {
 async function init() {
   const authHash = new URLSearchParams(window.location.hash.slice(1));
   if (authHash.get('error_code') === 'otp_expired') {
-    sessionStorage.setItem('authNotice', 'Your confirmation link expired. Request a new one below and use only the latest email link.');
+    sessionStorage.setItem('authNotice', 'This email link expired. Request a new confirmation or password-reset email and use only the latest link.');
     window.history.replaceState(null, '', `${window.location.pathname}#/auth/login`);
   }
+
+  // Register before model loading so PASSWORD_RECOVERY is not missed while
+  // Supabase processes the email callback URL.
+  onAuthChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      window.location.hash = '#/auth/reset-password';
+    }
+    if (event === 'SIGNED_IN') {
+      submitUnfinishedQuizAttempts().catch(error => console.warn('Could not submit an unfinished quiz attempt:', error.message));
+    }
+    if (navbar) navbar.refreshAuth();
+  });
+
   const loadingEl = document.getElementById('app-loading');
   const appEl = document.getElementById('app');
   const loadTf = document.getElementById('load-tf');
@@ -91,6 +104,8 @@ async function init() {
       '/quiz/results': quizResultsPage,
       '/auth/login': authPage,
       '/auth/register': authPage,
+      '/auth/forgot-password': authPage,
+      '/auth/reset-password': authPage,
       '/student': studentDashboardPage,
       '/teacher': teacherDashboardPage,
       '/admin': adminDashboardPage,
@@ -120,13 +135,6 @@ async function init() {
 
     submitUnfinishedQuizAttempts().catch(error => console.warn('Could not submit an unfinished quiz attempt:', error.message));
 
-    onAuthChange((event) => {
-      if (event === 'SIGNED_IN') {
-        submitUnfinishedQuizAttempts().catch(error => console.warn('Could not submit an unfinished quiz attempt:', error.message));
-      }
-      if (navbar) navbar.refreshAuth();
-    });
-    
     // Keyboard shortcut for debug panel
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'D') {

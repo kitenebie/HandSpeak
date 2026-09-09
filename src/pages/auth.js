@@ -1,5 +1,5 @@
 import { isSupabaseConfigured } from '../lib/supabase.js';
-import { signIn, signUp, resendConfirmation, validateRegistrationCode } from '../lib/classroom.js';
+import { requestPasswordReset, resendConfirmation, signIn, signUp, updatePassword, validateRegistrationCode } from '../lib/classroom.js';
 import { navigate } from '../router.js';
 
 export function mount(container, params) {
@@ -7,11 +7,28 @@ export function mount(container, params) {
     container.innerHTML = '<div class="asl-container"><div class="asl-card">Supabase is not configured. Add the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY variables, then restart the app.</div></div>';
     return;
   }
-  const register = window.location.hash.includes('/auth/register');
-  render(container, register);
+  const hash = window.location.hash;
+  const mode = hash.includes('/auth/register')
+    ? 'register'
+    : hash.includes('/auth/forgot-password')
+      ? 'forgot-password'
+      : hash.includes('/auth/reset-password')
+        ? 'reset-password'
+        : 'login';
+  render(container, mode);
 }
 
-function render(container, register) {
+function render(container, mode) {
+  if (mode === 'forgot-password') {
+    renderForgotPassword(container);
+    return;
+  }
+  if (mode === 'reset-password') {
+    renderResetPassword(container);
+    return;
+  }
+
+  const register = mode === 'register';
   container.innerHTML = `
     <main class="asl-auth asl-container">
       <section class="asl-auth__card asl-card">
@@ -21,7 +38,8 @@ function render(container, register) {
         <form id="auth-form" class="asl-form">
           ${register ? '<label>Account type<select name="accountType" id="account-type"><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label>Full name<input required name="fullName" autocomplete="name" placeholder="Your name"></label><label id="registration-code-label">Teacher room code<input required name="registrationCode" autocomplete="off" placeholder="e.g. A1B2C3" maxlength="16" style="text-transform:uppercase"></label>' : ''}
           <label>Email<input required name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
-          <label>Password<input required name="password" type="password" minlength="6" autocomplete="current-password" placeholder="At least 6 characters"></label>
+          <label>Password<input required name="password" type="password" minlength="6" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="At least 6 characters"></label>
+          ${!register ? '<div class="asl-auth__forgot"><a href="#/auth/forgot-password">Forgot password?</a></div>' : ''}
           <div id="auth-message" class="asl-form__message" aria-live="polite"></div>
           <button class="asl-btn asl-btn--primary asl-btn--lg" type="submit">${register ? 'Create account' : 'Sign in'}</button>
         </form>
@@ -94,6 +112,89 @@ function render(container, register) {
       } finally { resendButton.disabled = false; }
     });
   }
+}
+
+function renderForgotPassword(container) {
+  container.innerHTML = `
+    <main class="asl-auth asl-container">
+      <section class="asl-auth__card asl-card">
+        <div class="asl-auth__mark">🔑</div>
+        <h1>Forgot your password?</h1>
+        <p>Enter your account email and we’ll send you a secure password-reset link.</p>
+        <form id="forgot-password-form" class="asl-form">
+          <label>Email<input required name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
+          <div id="auth-message" class="asl-form__message" aria-live="polite"></div>
+          <button class="asl-btn asl-btn--primary asl-btn--lg" type="submit">Send reset link</button>
+        </form>
+        <div class="asl-auth__switch"><a href="#/auth/login">Back to sign in</a></div>
+      </section>
+    </main>`;
+
+  const form = container.querySelector('#forgot-password-form');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = form.querySelector('button');
+    const message = container.querySelector('#auth-message');
+    const email = new FormData(form).get('email').trim();
+    button.disabled = true;
+    message.textContent = '';
+    try {
+      await requestPasswordReset(email);
+      message.className = 'asl-form__message asl-form__message--success';
+      message.textContent = 'If an account exists for that email, a password-reset link has been sent.';
+    } catch (error) {
+      message.className = 'asl-form__message asl-form__message--error';
+      message.textContent = error.message || 'Could not send the password-reset email.';
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+function renderResetPassword(container) {
+  container.innerHTML = `
+    <main class="asl-auth asl-container">
+      <section class="asl-auth__card asl-card">
+        <div class="asl-auth__mark">🔒</div>
+        <h1>Create a new password</h1>
+        <p>Choose a new password with at least six characters.</p>
+        <form id="reset-password-form" class="asl-form">
+          <label>New password<input required name="password" type="password" minlength="6" autocomplete="new-password" placeholder="At least 6 characters"></label>
+          <label>Confirm new password<input required name="confirmPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Enter it again"></label>
+          <div id="auth-message" class="asl-form__message" aria-live="polite"></div>
+          <button class="asl-btn asl-btn--primary asl-btn--lg" type="submit">Update password</button>
+        </form>
+        <div class="asl-auth__switch"><a href="#/auth/login">Back to sign in</a></div>
+      </section>
+    </main>`;
+
+  const form = container.querySelector('#reset-password-form');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const fields = new FormData(form);
+    const password = fields.get('password');
+    const confirmPassword = fields.get('confirmPassword');
+    const button = form.querySelector('button');
+    const message = container.querySelector('#auth-message');
+    message.textContent = '';
+    if (password !== confirmPassword) {
+      message.className = 'asl-form__message asl-form__message--error';
+      message.textContent = 'The passwords do not match.';
+      return;
+    }
+
+    button.disabled = true;
+    try {
+      await updatePassword(password);
+      message.className = 'asl-form__message asl-form__message--success';
+      message.textContent = 'Your password has been updated. Redirecting to your dashboard…';
+      setTimeout(() => navigate('#/student'), 800);
+    } catch (error) {
+      message.className = 'asl-form__message asl-form__message--error';
+      message.textContent = error.message || 'This reset link is invalid or expired. Request a new link.';
+      button.disabled = false;
+    }
+  });
 }
 
 export function unmount() {}

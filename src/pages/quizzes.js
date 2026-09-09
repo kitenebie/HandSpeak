@@ -8,6 +8,13 @@ const quizMeta = type => ({
   spelling: { label: 'Spelling quiz', icon: 'spell-check', route: '#/quiz/spelling' },
   word_sign: { label: 'Word sign quiz', icon: 'scan-face', route: '#/quiz/word-sign' }
 })[type] || { label: 'Quiz', icon: 'clipboard-check', route: '#/quiz' };
+const questionLabel = count => `${count} ${Number(count) === 1 ? 'question' : 'questions'}`;
+const quizInfo = quiz => {
+  if (quiz.quiz_type === 'word_sign' && quiz.settings?.quiz_type === 'two_words') {
+    return `${questionLabel(quiz.question_count)} · ${(quiz.settings.words || []).join(' → ')} · signs must be in order`;
+  }
+  return `${questionLabel(quiz.question_count)} · randomized for each student`;
+};
 
 export async function mount(container) {
   container.innerHTML = '<div class="asl-container"><div class="asl-card">Loading available quizzes…</div></div>';
@@ -27,7 +34,7 @@ function render(container, quizzes, attempts) {
   const card = activity => {
     const alreadyTaken = attempts.some(attempt => attempt.quiz_id === activity.id);
     const meta = quizMeta(activity.quiz_type);
-    const info = `${activity.question_count} questions · randomized for each student`;
+    const info = quizInfo(activity);
     return `<article class="asl-assignment asl-classroom-activity ${alreadyTaken ? 'asl-classroom-activity--completed' : ''}" data-kind="${activity.kind}" data-id="${activity.id}">
       <span class="asl-classroom-activity__icon"><i data-lucide="${meta.icon}"></i></span>
       <span class="asl-assignment__type">${meta.label}</span>

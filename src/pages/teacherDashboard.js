@@ -11,6 +11,8 @@ const quizTypeLabel = type => ({
   spelling: 'Word spelling',
   word_sign: 'Word sign recognition'
 })[type] || type;
+const wordQuizType = quiz => quiz?.settings?.quiz_type === 'two_words' ? 'two_words' : 'single_word';
+const wordQuizTypeLabel = quiz => wordQuizType(quiz) === 'two_words' ? 'Two Words' : 'Single Word';
 
 export async function mount(container) {
   container.innerHTML = '<div class="asl-container"><div class="asl-card">Loading teacher panel…</div></div>';
@@ -45,8 +47,16 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
             <label>Quiz type<select name="quizType" id="quiz-type"><option value="alphabet">Alphabet translation</option><option value="spelling">Word spelling</option><option value="word_sign">Word sign recognition</option></select></label>
             <div id="alphabet-options"><div class="asl-form-row"><label>From<select name="rangeStart">${letters.map(l => `<option>${l}</option>`).join('')}</select></label><label>To<select name="rangeEnd">${letters.map(l => `<option ${l === 'Z' ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div></div>
             <div id="spelling-options" hidden><label>Words (comma-separated)<input name="words" value="${WORDS.slice(0, 5).join(', ')}" placeholder="HELLO, SCHOOL, FRIEND"></label></div>
-            <div id="word-sign-options" hidden><label>Recognizable words<select name="wordSigns" id="word-sign-select" multiple size="${Math.max(3, supportedWordSigns.length)}" required>${supportedWordSigns.map(word => `<option value="${escape(word)}" selected>${escape(word)}</option>`).join('')}</select><small>Only words included in the trained model are available. Use Ctrl/Cmd-click to change multiple selections.</small></label></div>
-            <label>Questions per student<input name="questionCount" type="number" min="1" max="26" value="10" required></label>
+            <div id="word-sign-options" hidden>
+              <label>Word quiz format<select name="wordQuizType" id="word-quiz-type"><option value="single_word">Single Word</option><option value="two_words">Two Words</option></select></label>
+              <div id="single-word-options"><label>Recognizable words<select name="wordSigns" id="word-sign-select" multiple size="${Math.max(3, supportedWordSigns.length)}" required>${supportedWordSigns.map(word => `<option value="${escape(word)}" selected>${escape(word)}</option>`).join('')}</select><small>Only words included in the trained model are available. Use Ctrl/Cmd-click to change multiple selections.</small></label></div>
+              <div id="two-word-options" class="asl-form-row" hidden>
+                <label>Word 1<select name="wordSign1" id="word-sign-1" required>${supportedWordSigns.map((word, index) => `<option value="${escape(word)}" ${index === 0 ? 'selected' : ''}>${escape(word)}</option>`).join('')}</select></label>
+                <label>Word 2<select name="wordSign2" id="word-sign-2" required>${supportedWordSigns.map((word, index) => `<option value="${escape(word)}" ${index === 1 ? 'selected' : ''}>${escape(word)}</option>`).join('')}</select></label>
+              </div>
+              <small>Two-word signs are checked in the selected order and count as one question.</small>
+            </div>
+            <label id="question-count-field">Questions per student<input name="questionCount" type="number" min="1" max="26" value="10" required></label>
             <div class="asl-form-row"><label>Available from<input name="availableFrom" type="datetime-local"></label><label>Available until<input name="availableUntil" type="datetime-local"></label></div>
             <label class="asl-checkbox"><input type="checkbox" name="published" checked> Publish immediately</label>
             <div id="create-message" class="asl-form__message" aria-live="polite"></div><button class="asl-btn asl-btn--primary" type="submit">Create quiz</button>
@@ -58,7 +68,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
         }).join('') || '<tr><td colspan="4" class="asl-empty">No students have registered yet.</td></tr>'}</tbody></table></div>
         </section>
       </div>
-      <section class="asl-section"><h2>Quiz list</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Status</th><th>Created</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}</td><td>${q.question_count}</td><td><span class="asl-status ${q.is_published ? 'asl-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="asl-empty">Create your first quiz above.</td></tr>'}</tbody></table></div></section>
+      <section class="asl-section"><h2>Quiz list</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Status</th><th>Created</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}${q.quiz_type === 'word_sign' ? `<br><small>${wordQuizTypeLabel(q)}</small>` : ''}</td><td>${q.question_count}</td><td><span class="asl-status ${q.is_published ? 'asl-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="asl-empty">Create your first quiz above.</td></tr>'}</tbody></table></div></section>
       <section class="asl-section"><h2>Student scores</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Quiz</th><th>Score</th><th>Accuracy</th><th>Completed</th></tr></thead><tbody>${attempts.slice(0, 20).map(a => `<tr><td>${escape(a.profiles?.full_name || a.profiles?.email || 'Student')}</td><td>${escape(a.quizzes?.title || quizTypeLabel(a.quiz_type))}</td><td>${a.score}/${a.max_score}</td><td>${Math.round(a.accuracy || 0)}%</td><td>${new Date(a.completed_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="asl-empty">Scores will appear when students complete quizzes.</td></tr>'}</tbody></table></div></section>
     </div>`;
 
@@ -109,25 +119,49 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
   const type = container.querySelector('#quiz-type');
   const questionCountInput = form.querySelector('[name="questionCount"]');
   const wordSignSelect = container.querySelector('#word-sign-select');
+  const wordQuizTypeSelect = container.querySelector('#word-quiz-type');
+  const wordSign1Select = container.querySelector('#word-sign-1');
+  const wordSign2Select = container.querySelector('#word-sign-2');
   const supportedWordLookup = new Map(supportedWordSigns.map(word => [normalizeWordSign(word), word]));
   const updateQuestionLimit = () => {
     const selectedCount = wordSignSelect.selectedOptions.length;
     if (type.value === 'word_sign') {
-      questionCountInput.max = String(Math.max(1, selectedCount));
-      if (Number(questionCountInput.value) > selectedCount) questionCountInput.value = String(Math.max(1, selectedCount));
+      if (wordQuizTypeSelect.value === 'two_words') {
+        questionCountInput.min = '1';
+        questionCountInput.max = '1';
+        questionCountInput.value = '1';
+        questionCountInput.readOnly = true;
+      } else {
+        questionCountInput.min = '1';
+        questionCountInput.max = String(Math.max(1, selectedCount));
+        questionCountInput.readOnly = false;
+        if (Number(questionCountInput.value) > selectedCount) questionCountInput.value = String(Math.max(1, selectedCount));
+      }
     } else {
+      questionCountInput.min = '1';
       questionCountInput.max = '26';
+      questionCountInput.readOnly = false;
     }
   };
   const updateQuizTypeOptions = () => {
+    const isWordSign = type.value === 'word_sign';
+    const isTwoWords = isWordSign && wordQuizTypeSelect.value === 'two_words';
     container.querySelector('#alphabet-options').hidden = type.value !== 'alphabet';
     container.querySelector('#spelling-options').hidden = type.value !== 'spelling';
-    container.querySelector('#word-sign-options').hidden = type.value !== 'word_sign';
-    wordSignSelect.disabled = type.value !== 'word_sign';
-    wordSignSelect.required = type.value === 'word_sign';
+    container.querySelector('#word-sign-options').hidden = !isWordSign;
+    container.querySelector('#single-word-options').hidden = !isWordSign || isTwoWords;
+    container.querySelector('#two-word-options').hidden = !isTwoWords;
+    wordQuizTypeSelect.disabled = !isWordSign;
+    wordSignSelect.disabled = !isWordSign || isTwoWords;
+    wordSignSelect.required = isWordSign && !isTwoWords;
+    wordSign1Select.disabled = !isTwoWords;
+    wordSign2Select.disabled = !isTwoWords;
+    wordSign1Select.required = isTwoWords;
+    wordSign2Select.required = isTwoWords;
     updateQuestionLimit();
   };
   type.addEventListener('change', updateQuizTypeOptions);
+  wordQuizTypeSelect.addEventListener('change', updateQuizTypeOptions);
   wordSignSelect.addEventListener('change', updateQuestionLimit);
   updateQuizTypeOptions();
   form.addEventListener('submit', async event => {
@@ -137,20 +171,27 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
     const questionCount = Number(fd.get('questionCount'));
     const rangeStart = fd.get('rangeStart'); const rangeEnd = fd.get('rangeEnd');
     const selectedWords = String(fd.get('words') || '').toUpperCase().split(',').map(word => word.trim()).filter(Boolean);
+    const selectedWordQuizType = fd.get('wordQuizType') === 'two_words' ? 'two_words' : 'single_word';
     const selectedWordSigns = fd.getAll('wordSigns')
+      .map(word => supportedWordLookup.get(normalizeWordSign(word)))
+      .filter(Boolean);
+    const selectedPhrase = [fd.get('wordSign1'), fd.get('wordSign2')]
       .map(word => supportedWordLookup.get(normalizeWordSign(word)))
       .filter(Boolean);
     if (quizType === 'alphabet' && rangeStart > rangeEnd) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'The end letter must come after the start letter.'; return; }
     if (quizType === 'spelling' && !selectedWords.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Add at least one word for a spelling quiz.'; return; }
-    if (quizType === 'word_sign' && !selectedWordSigns.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Select at least one recognizable word.'; return; }
-    if (quizType === 'word_sign' && questionCount > selectedWordSigns.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'The question count cannot exceed the selected words.'; return; }
+    if (quizType === 'word_sign' && selectedWordQuizType === 'single_word' && !selectedWordSigns.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Select at least one recognizable word.'; return; }
+    if (quizType === 'word_sign' && selectedWordQuizType === 'single_word' && questionCount > selectedWordSigns.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'The question count cannot exceed the selected words.'; return; }
+    if (quizType === 'word_sign' && selectedWordQuizType === 'two_words' && selectedPhrase.length !== 2) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Select both words from the trained model list.'; return; }
     button.disabled = true;
     try {
       if (!classroom) throw new Error('Your teacher room is not ready yet. Contact an administrator.');
       const settings = quizType === 'alphabet'
         ? { range_start: rangeStart, range_end: rangeEnd }
-        : { words: quizType === 'word_sign' ? selectedWordSigns : selectedWords };
-      await createQuiz({ classroom_id: classroom.id, title: fd.get('title').trim(), quiz_type: quizType, question_count: questionCount, is_published: fd.has('published'), available_from: fd.get('availableFrom') || null, available_until: fd.get('availableUntil') || null, settings });
+        : quizType === 'word_sign'
+          ? { quiz_type: selectedWordQuizType, words: selectedWordQuizType === 'two_words' ? selectedPhrase : selectedWordSigns }
+          : { words: selectedWords };
+      await createQuiz({ classroom_id: classroom.id, title: fd.get('title').trim(), quiz_type: quizType, question_count: selectedWordQuizType === 'two_words' && quizType === 'word_sign' ? 1 : questionCount, is_published: fd.has('published'), available_from: fd.get('availableFrom') || null, available_until: fd.get('availableUntil') || null, settings });
       message.className = 'asl-form__message asl-form__message--success'; message.textContent = 'Quiz created. Refreshing the list…';
       closeDrawers();
       setTimeout(() => mount(container), 500);

@@ -36,6 +36,7 @@ let attemptFinalized = false;
 let progressSaveTimer = null;
 let transitionTimer = null;
 let pageContainer = null;
+let activeWordQuizType = 'single_word';
 
 const escape = (value = '') => String(value).replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -57,7 +58,7 @@ function getAttemptPayload() {
     score: results.score,
     maxScore: results.maxScore,
     accuracy: results.accuracy,
-    detail: { mistakes: results.mistakes, total_questions: results.totalQuestions }
+    detail: { mistakes: results.mistakes, total_questions: results.totalQuestions, word_quiz_type: results.quizType }
   };
 }
 
@@ -105,22 +106,26 @@ export async function mount(container) {
     if (pageContainer !== container) return;
 
     const supportedLookup = new Map(supportedWords.map(word => [normalizeWordSign(word), word]));
+    activeWordQuizType = assignedQuiz?.settings?.quiz_type === 'two_words' ? 'two_words' : 'single_word';
     const configuredWords = assignedQuiz
       ? (assignedQuiz.settings?.words || [])
       : supportedWords;
-    const validWords = [...new Set(configuredWords
+    const normalizedWords = configuredWords
       .map(word => supportedLookup.get(normalizeWordSign(word)))
-      .filter(Boolean))];
+      .filter(Boolean);
+    const validWords = activeWordQuizType === 'two_words'
+      ? normalizedWords.slice(0, 2)
+      : [...new Set(normalizedWords)];
 
-    if (!validWords.length) {
+    if (!validWords.length || (activeWordQuizType === 'two_words' && validWords.length !== 2)) {
       throw new Error('This quiz has no words supported by the current model.');
     }
 
-    const questionCount = Math.min(
+    const questionCount = activeWordQuizType === 'two_words' ? 1 : Math.min(
       Number(assignedQuiz?.question_count || validWords.length),
       validWords.length
     );
-    quiz = new WordSignQuizEngine({ words: validWords, questionCount });
+    quiz = new WordSignQuizEngine({ words: validWords, questionCount, quizType: activeWordQuizType });
     activeAttemptId = null;
     attemptFinalized = false;
 
@@ -131,7 +136,7 @@ export async function mount(container) {
         classroomId: assignedQuiz?.classroom_id || null,
         quizType: 'word_sign',
         maxScore: initialResults.maxScore,
-        detail: { mistakes: [], total_questions: initialResults.totalQuestions }
+        detail: { mistakes: [], total_questions: initialResults.totalQuestions, word_quiz_type: initialResults.quizType }
       });
       activeAttemptId = attempt?.id || null;
     } catch (error) {
@@ -158,8 +163,9 @@ async function renderQuiz(container) {
         <section class="asl-quiz__info asl-card">
           <div class="asl-quiz__header"><div class="asl-quiz__question-counter" id="word-sign-counter"></div></div>
           <div class="asl-text-center" style="margin: 1.5rem 0;">
-            <span class="asl-eyebrow">Show the complete sign for</span>
+            <span class="asl-eyebrow">Sign:</span>
             <div class="asl-target-letter" id="word-sign-target" style="font-size: clamp(2rem, 7vw, 4rem); width: auto; padding: 0 1rem;"></div>
+            <div class="asl-word-sequence" id="word-sign-sequence" aria-label="Word signing progress"></div>
           </div>
           <p class="asl-muted asl-text-center">Keep your upper body and both hands inside the frame. Press the button, then perform the sign naturally.</p>
           <button id="word-sign-capture" class="asl-btn asl-btn--primary asl-btn--lg" type="button" disabled>Preparing camera…</button>
@@ -178,7 +184,8 @@ async function renderQuiz(container) {
     await camera.start();
     captureButton.disabled = false;
     captureButton.textContent = 'Record sign (3 seconds)';
-    setStatus('Ready. Press record when you are in position.');
+    const current = quiz.getCurrentQuestion();
+    setStatus(`Ready. Sign ${current.expectedWord} first.`);
     startInferenceLoop();
   } catch {
     setStatus('Camera access is required for this quiz.', 'error');
@@ -190,8 +197,16 @@ function updateQuestionDisplay() {
   if (!current || !pageContainer) return;
   const counter = pageContainer.querySelector('#word-sign-counter');
   const target = pageContainer.querySelector('#word-sign-target');
+  const sequence = pageContainer.querySelector('#word-sign-sequence');
   if (counter) counter.textContent = `Question ${current.questionNumber} / ${current.totalQuestions}`;
   if (target) target.textContent = current.word;
+  if (sequence) {
+    sequence.innerHTML = current.progress.map((item, index) => `
+      ${index ? '<span class="asl-word-sequence__arrow" aria-hidden="true">→</span>' : ''}
+      <span class="asl-word-sequence__item${item.completed ? ' asl-word-sequence__item--complete' : ''}${index === current.currentWordIndex ? ' asl-word-sequence__item--current' : ''}">
+        ${item.completed ? '<span aria-hidden="true">✓</span> ' : ''}${escape(item.word)}
+      </span>`).join('');
+  }
 }
 
 function setStatus(message, type = '') {
@@ -212,7 +227,8 @@ function beginCapture() {
   const button = pageContainer.querySelector('#word-sign-capture');
   button.disabled = true;
   button.textContent = 'Recording…';
-  setStatus('Recording—perform the complete sign now.');
+  const expectedWord = quiz?.getCurrentQuestion()?.expectedWord;
+  setStatus(`Recording—perform the sign for ${expectedWord || 'the expected word'} now.`);
 }
 
 function startInferenceLoop() {
@@ -276,17 +292,29 @@ async function finishCapture() {
 
     const prediction = await predictWordSequence(completedCapture.frames, CONFIDENCE_THRESHOLD);
     const answer = quiz.checkAnswer(prediction.label);
-    scheduleAttemptSave();
     if (answer.correct) {
-      setStatus(`Correct! ${prediction.label} (${Math.round(prediction.confidence * 100)}%)`, 'success');
+      updateQuestionDisplay();
+      if (answer.questionComplete) {
+        scheduleAttemptSave();
+        setStatus(`Correct! ${answer.targetPhrase} (${Math.round(prediction.confidence * 100)}% on the final sign)`, 'success');
+        transitionTimer = setTimeout(moveToNextQuestion, 1800);
+      } else {
+        setStatus(`${prediction.label} detected. Next, sign ${answer.nextExpectedWord}.`, 'success');
+        enableCaptureButton(`Record ${answer.nextExpectedWord} (3 seconds)`);
+      }
     } else {
       const detected = prediction.label === 'Unknown'
         ? 'No confident word detected'
         : `Detected ${prediction.label} (${Math.round(prediction.confidence * 100)}%)`;
-      setStatus(`${detected}. The correct answer was ${answer.targetWord}.`, 'error');
+      if (answer.retryRequired) {
+        setStatus(`${detected}. Expected ${answer.targetWord}. Try that word again.`, 'error');
+        enableCaptureButton(`Try ${answer.targetWord} again`);
+      } else {
+        scheduleAttemptSave();
+        setStatus(`${detected}. The correct answer was ${answer.targetWord}.`, 'error');
+        transitionTimer = setTimeout(moveToNextQuestion, 1800);
+      }
     }
-
-    transitionTimer = setTimeout(moveToNextQuestion, 1800);
   } catch (error) {
     console.error('Word-sign inference failed:', error);
     setStatus(`Could not analyze the sign: ${error.message}`, 'error');
@@ -311,7 +339,8 @@ function moveToNextQuestion() {
     return;
   }
   updateQuestionDisplay();
-  setStatus('Ready for the next word.');
+  const expectedWord = quiz.getCurrentQuestion()?.expectedWord;
+  setStatus(`Ready. Sign ${expectedWord}.`);
   enableCaptureButton();
 }
 
@@ -335,7 +364,7 @@ function completeQuiz() {
       score: results.score,
       maxScore: results.maxScore,
       accuracy: results.accuracy,
-      detail: { mistakes: results.mistakes, total_questions: results.totalQuestions }
+      detail: { mistakes: results.mistakes, total_questions: results.totalQuestions, word_quiz_type: results.quizType }
     }).catch(error => console.warn('Could not save word quiz:', error.message));
   }
   if (assignedQuiz) sessionStorage.removeItem('assignedQuiz');
@@ -359,5 +388,6 @@ export function unmount() {
   assignedQuiz = null;
   activeAttemptId = null;
   attemptFinalized = false;
+  activeWordQuizType = 'single_word';
   pageContainer = null;
 }

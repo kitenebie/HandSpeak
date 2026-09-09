@@ -110,6 +110,12 @@ p { margin-bottom: 1rem; }
 .asl-prediction--correct { border-color: var(--color-success); }
 .asl-prediction--incorrect { border-color: var(--color-danger); }
 
+.asl-word-sequence { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.65rem; margin-top: 1rem; }
+.asl-word-sequence__item { padding: 0.55rem 0.85rem; border: 2px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); font-weight: 700; color: var(--color-text); }
+.asl-word-sequence__item--current { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent); }
+.asl-word-sequence__item--complete { border-color: var(--color-success); background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface)); color: var(--color-success); }
+.asl-word-sequence__arrow { color: var(--color-text-light); font-size: 1.3rem; font-weight: 700; }
+
 .asl-debug { position: fixed; bottom: 16px; right: 16px; z-index: 9999; width: 340px; max-height: 500px; overflow-y: auto; background: var(--color-bg-dark); color: #E0E0E0; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); font-size: 0.8rem; font-family: 'Courier New', monospace; }
 .asl-debug--hidden { display: none; }
 .asl-debug__header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
@@ -219,6 +225,7 @@ p { margin-bottom: 1rem; }
 .asl-auth__card > p, .asl-auth__card small { display: block; text-align: center; color: var(--color-text-light); }
 .asl-auth__mark { text-align: center; font-size: 3rem; margin-bottom: .5rem; }
 .asl-auth__switch { text-align: center; margin-top: 1.25rem; }
+.asl-auth__forgot { margin-top: -0.4rem; text-align: right; font-size: .88rem; }
 .asl-auth__resend { display: block; margin: .7rem auto 0; padding: .25rem; color: var(--color-primary); background: transparent; border: 0; font: inherit; font-size: .82rem; cursor: pointer; }
 .asl-auth__resend:hover { text-decoration: underline; }
 .asl-form { display: grid; gap: 1rem; margin-top: 1.5rem; }

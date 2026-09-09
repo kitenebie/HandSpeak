@@ -181,11 +181,24 @@ export class SpellingQuizEngine {
 }
 
 export class WordSignQuizEngine {
-  constructor({ words = [], questionCount = words.length }) {
-    const uniqueWords = [...new Set(words.map(word => String(word).trim()).filter(Boolean))];
-    shuffle(uniqueWords);
-    this.questions = uniqueWords.slice(0, Math.min(questionCount, uniqueWords.length));
+  constructor({ words = [], questionCount = words.length, quizType = 'single_word' }) {
+    this.quizType = quizType === 'two_words' ? 'two_words' : 'single_word';
+    const normalizedWords = words.map(word => String(word).trim()).filter(Boolean);
+
+    if (this.quizType === 'two_words') {
+      // A phrase is one question. Keeping each question as an array makes this
+      // progression reusable if longer phrases are added later.
+      this.questions = normalizedWords.length ? [normalizedWords] : [];
+    } else {
+      const uniqueWords = [...new Set(normalizedWords)];
+      shuffle(uniqueWords);
+      this.questions = uniqueWords
+        .slice(0, Math.min(questionCount, uniqueWords.length))
+        .map(word => [word]);
+    }
+
     this.currentIndex = 0;
+    this.currentWordIndex = 0;
     this.correctCount = 0;
     this.incorrectCount = 0;
     this.mistakes = [];
@@ -193,32 +206,62 @@ export class WordSignQuizEngine {
 
   getCurrentQuestion() {
     if (this.isComplete()) return null;
+    const words = this.questions[this.currentIndex];
     return {
-      word: this.questions[this.currentIndex],
+      word: words.join(' '),
+      words: [...words],
+      expectedWord: words[this.currentWordIndex] || null,
+      currentWordIndex: this.currentWordIndex,
+      progress: words.map((word, index) => ({
+        word,
+        completed: index < this.currentWordIndex
+      })),
       questionNumber: this.currentIndex + 1,
       totalQuestions: this.questions.length
     };
   }
 
   checkAnswer(detectedLabel) {
-    const targetWord = this.questions[this.currentIndex];
+    const words = this.questions[this.currentIndex];
+    const targetWord = words[this.currentWordIndex];
     const correct = String(detectedLabel).toLocaleLowerCase() === targetWord.toLocaleLowerCase();
+
     if (correct) {
-      this.correctCount++;
-    } else {
+      this.currentWordIndex++;
+      const questionComplete = this.currentWordIndex >= words.length;
+      if (questionComplete) this.correctCount++;
+      return {
+        correct: true,
+        questionComplete,
+        targetWord,
+        targetPhrase: words.join(' '),
+        detectedWord: detectedLabel,
+        nextExpectedWord: questionComplete ? null : words[this.currentWordIndex],
+        points: questionComplete ? WORD_SIGN_QUIZ_POINTS.correct : 0
+      };
+    }
+
+    const retryRequired = words.length > 1;
+    if (!retryRequired) {
       this.incorrectCount++;
       if (!this.mistakes.includes(targetWord)) this.mistakes.push(targetWord);
     }
+
     return {
-      correct,
+      correct: false,
+      questionComplete: false,
+      retryRequired,
       targetWord,
+      targetPhrase: words.join(' '),
       detectedWord: detectedLabel,
-      points: correct ? WORD_SIGN_QUIZ_POINTS.correct : WORD_SIGN_QUIZ_POINTS.incorrect
+      nextExpectedWord: targetWord,
+      points: WORD_SIGN_QUIZ_POINTS.incorrect
     };
   }
 
   nextQuestion() {
     this.currentIndex++;
+    this.currentWordIndex = 0;
   }
 
   isComplete() {
@@ -232,7 +275,8 @@ export class WordSignQuizEngine {
       correct: this.correctCount,
       incorrect: this.incorrectCount,
       mistakes: this.mistakes,
-      totalQuestions: this.questions.length
+      totalQuestions: this.questions.length,
+      quizType: this.quizType
     };
   }
 }

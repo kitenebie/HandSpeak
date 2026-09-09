@@ -4,7 +4,13 @@ import { navigate } from '../router.js';
 const quizMeta = type => ({
   alphabet: { label: '🔤 Alphabet translation', detail: quiz => `${quiz.settings?.range_start || 'A'}–${quiz.settings?.range_end || 'Z'}`, route: '#/quiz/letter' },
   spelling: { label: '✍️ Word spelling', detail: () => 'Words selected by your teacher', route: '#/quiz/spelling' },
-  word_sign: { label: '🤟 Word sign recognition', detail: quiz => `${quiz.settings?.words?.length || quiz.question_count} selectable signs`, route: '#/quiz/word-sign' }
+  word_sign: {
+    label: '🤟 Word sign recognition',
+    detail: quiz => quiz.settings?.quiz_type === 'two_words'
+      ? `${(quiz.settings?.words || []).join(' → ')} · signs in order`
+      : `${quiz.settings?.words?.length || quiz.question_count} selectable signs`,
+    route: '#/quiz/word-sign'
+  }
 })[type] || { label: 'Quiz', detail: () => '', route: '#/quiz' };
 
 const escape = (value = '') => String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
@@ -29,7 +35,7 @@ export async function mount(container) {
     list.innerHTML = quizzes.length ? quizzes.map((quiz, index) => {
       const alreadyTaken = attempts.some(attempt => attempt.quiz_id === quiz.id);
       const meta = quizMeta(quiz.quiz_type);
-      return `<article class="asl-assignment ${alreadyTaken ? 'asl-classroom-activity--completed' : ''}"><span class="asl-assignment__type">${meta.label}</span>${alreadyTaken ? '<span class="asl-status asl-status--taken">Already taken</span>' : ''}<h3>${escape(quiz.title)}</h3><p>${quiz.question_count} questions · ${escape(meta.detail(quiz))}</p><button class="asl-btn asl-btn--primary start-assignment" data-index="${index}" ${alreadyTaken ? 'disabled aria-disabled="true"' : ''}>${alreadyTaken ? 'Already taken' : 'Start quiz'}</button></article>`;
+      return `<article class="asl-assignment ${alreadyTaken ? 'asl-classroom-activity--completed' : ''}"><span class="asl-assignment__type">${meta.label}</span>${alreadyTaken ? '<span class="asl-status asl-status--taken">Already taken</span>' : ''}<h3>${escape(quiz.title)}</h3><p>${quiz.question_count} ${Number(quiz.question_count) === 1 ? 'question' : 'questions'} · ${escape(meta.detail(quiz))}</p><button class="asl-btn asl-btn--primary start-assignment" data-index="${index}" ${alreadyTaken ? 'disabled aria-disabled="true"' : ''}>${alreadyTaken ? 'Already taken' : 'Start quiz'}</button></article>`;
     }).join('') : '<div class="asl-empty-card">No teacher quizzes are open right now.</div>';
     container.querySelector('#go-learn').addEventListener('click', () => navigate('#/learn'));
     list.querySelectorAll('.start-assignment').forEach(button => button.addEventListener('click', () => {
