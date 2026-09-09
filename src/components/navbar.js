@@ -34,11 +34,17 @@ export function createNavbar(container) {
 
   const renderLinks = (profile = null) => {
     const holder = el.querySelector('.asl-navbar__links');
+    const isAuthenticated = Boolean(profile);
+    el.hidden = !isAuthenticated;
+    document.body.classList.toggle('asl-sidebar-hidden', !isAuthenticated);
+    if (!isAuthenticated) {
+      holder.innerHTML = '';
+      links = [];
+      return;
+    }
     const destination = profile?.role === 'admin' ? 'admin' : profile?.role === 'teacher' ? 'teacher' : 'student';
-    const dashboardLink = profile
-      ? '<a href="#/' + destination + '" data-path="/' + destination + '"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>'
-      : '<a href="#/" data-path="/"><i data-lucide="house"></i><span>Home</span></a>';
-    const accountLink = profile ? '<button type="button" class="asl-navbar__logout" id="nav-logout"><i data-lucide="log-out"></i><span>Sign out</span></button>' : '<a href="#/auth/login" data-path="/auth"><i data-lucide="log-in"></i><span>Sign in</span></a>';
+    const dashboardLink = '<a href="#/' + destination + '" data-path="/' + destination + '"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>';
+    const accountLink = '<button type="button" class="asl-navbar__logout" id="nav-logout"><i data-lucide="log-out"></i><span>Sign out</span></button>';
     const learningLinks = profile?.role === 'admin' ? '' : '<a href="#/learn" data-path="/learn"><i data-lucide="book-open"></i><span>Learning</span></a><a href="#/quiz" data-path="/quiz"><i data-lucide="clipboard-check"></i><span>Quizzes</span></a>';
     holder.innerHTML = `${dashboardLink}${learningLinks}${accountLink}`;
     createIcons({ icons });
@@ -71,6 +77,7 @@ export function createNavbar(container) {
     refreshAuth,
     destroy() {
       menuBtn.removeEventListener('click', toggleMenu);
+      document.body.classList.remove('asl-sidebar-hidden');
       el.remove();
     }
   };

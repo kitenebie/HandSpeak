@@ -1,4 +1,5 @@
 import { CameraManager } from '../ai/cameraManager.js';
+import { createIcons, icons } from 'lucide';
 
 const HAND_CONNECTIONS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 
@@ -9,19 +10,79 @@ export function createCamera(container) {
     <div class="asl-camera__viewport">
       <video class="asl-camera__video" autoplay playsinline muted></video>
       <canvas class="asl-camera__canvas"></canvas>
+      <div class="asl-camera__countdown" hidden aria-live="assertive"></div>
+      <button class="asl-camera__fullscreen-btn" type="button" aria-label="Expand camera" aria-pressed="false" title="Expand camera">
+        <i data-lucide="maximize-2"></i>
+      </button>
       <div class="asl-camera__error" style="display:none"></div>
     </div>
     <div class="asl-camera__status">Camera: Inactive</div>
   `;
   container.appendChild(el);
 
+  const viewport = el.querySelector('.asl-camera__viewport');
   const video = el.querySelector('.asl-camera__video');
   const canvas = el.querySelector('.asl-camera__canvas');
+  const countdownDiv = el.querySelector('.asl-camera__countdown');
+  const fullscreenBtn = el.querySelector('.asl-camera__fullscreen-btn');
   const errorDiv = el.querySelector('.asl-camera__error');
   const statusDiv = el.querySelector('.asl-camera__status');
   const ctx = canvas.getContext('2d');
   
   let manager = null;
+  let fallbackExpanded = false;
+
+  const isExpanded = () => document.fullscreenElement === viewport || fallbackExpanded;
+  const renderFullscreenButton = () => {
+    const expanded = isExpanded();
+    fullscreenBtn.innerHTML = `<i data-lucide="${expanded ? 'minimize-2' : 'maximize-2'}"></i>`;
+    fullscreenBtn.setAttribute('aria-label', expanded ? 'Exit full screen camera' : 'Expand camera');
+    fullscreenBtn.setAttribute('aria-pressed', String(expanded));
+    fullscreenBtn.title = expanded ? 'Exit full screen camera' : 'Expand camera';
+    createIcons({ icons });
+  };
+  const exitExpanded = async () => {
+    if (document.fullscreenElement === viewport && document.exitFullscreen) {
+      await document.exitFullscreen();
+      return;
+    }
+    fallbackExpanded = false;
+    viewport.classList.remove('asl-camera__viewport--expanded');
+    renderFullscreenButton();
+  };
+  const enterExpanded = async () => {
+    if (viewport.requestFullscreen) {
+      await viewport.requestFullscreen();
+      return;
+    }
+    fallbackExpanded = true;
+    viewport.classList.add('asl-camera__viewport--expanded');
+    renderFullscreenButton();
+  };
+  const toggleExpanded = async () => {
+    try {
+      if (isExpanded()) {
+        await exitExpanded();
+      } else {
+        await enterExpanded();
+      }
+    } catch {
+      fallbackExpanded = !fallbackExpanded;
+      viewport.classList.toggle('asl-camera__viewport--expanded', fallbackExpanded);
+      renderFullscreenButton();
+    }
+  };
+  const handleFullscreenChange = () => {
+    if (document.fullscreenElement !== viewport) {
+      fallbackExpanded = false;
+      viewport.classList.remove('asl-camera__viewport--expanded');
+    }
+    renderFullscreenButton();
+  };
+
+  fullscreenBtn.addEventListener('click', toggleExpanded);
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  renderFullscreenButton();
 
   return {
     async start() {
@@ -148,11 +209,26 @@ export function createCamera(container) {
     showStatus(text) {
       statusDiv.textContent = text;
     },
+    showCountdown(value) {
+      countdownDiv.hidden = false;
+      countdownDiv.textContent = value;
+    },
+    hideCountdown() {
+      countdownDiv.hidden = true;
+      countdownDiv.textContent = '';
+    },
     isActive() {
       return manager && manager.isActive();
     },
     destroy() {
       this.stop();
+      this.hideCountdown();
+      fullscreenBtn.removeEventListener('click', toggleExpanded);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      if (document.fullscreenElement === viewport && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      viewport.classList.remove('asl-camera__viewport--expanded');
       el.remove();
     }
   };

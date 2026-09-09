@@ -42,6 +42,7 @@ create table if not exists public.quizzes (
   title text not null check (char_length(title) between 1 and 100),
   quiz_type text not null check (quiz_type in ('alphabet', 'spelling', 'word_sign')),
   question_count integer not null check (question_count between 1 and 26),
+  max_attempts integer not null default 1 check (max_attempts between 1 and 10),
   settings jsonb not null default '{}'::jsonb,
   is_published boolean not null default false,
   available_from timestamptz,
@@ -80,12 +81,24 @@ create table if not exists public.classroom_materials (
 
 create or replace function public.prevent_duplicate_quiz_attempt()
 returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  allowed_attempts integer := 1;
+  used_attempts integer := 0;
 begin
-  if new.quiz_id is not null and exists (
-    select 1 from public.quiz_attempts
-    where quiz_id = new.quiz_id and student_id = new.student_id
-  ) then
-    raise exception 'This quiz has already been taken.' using errcode = 'P0001';
+  if new.quiz_id is not null then
+    select coalesce(max_attempts, 1)
+      into allowed_attempts
+      from public.quizzes
+      where id = new.quiz_id;
+
+    select count(*)
+      into used_attempts
+      from public.quiz_attempts
+      where quiz_id = new.quiz_id and student_id = new.student_id;
+
+    if used_attempts >= allowed_attempts then
+      raise exception 'This quiz has reached the maximum number of attempts.' using errcode = 'P0001';
+    end if;
   end if;
   return new;
 end;
@@ -100,6 +113,9 @@ for each row execute function public.prevent_duplicate_quiz_attempt();
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role in ('student', 'teacher', 'admin'));
 alter table public.quizzes add column if not exists classroom_id uuid references public.classrooms(id) on delete cascade;
+alter table public.quizzes add column if not exists max_attempts integer not null default 1;
+alter table public.quizzes drop constraint if exists quizzes_max_attempts_check;
+alter table public.quizzes add constraint quizzes_max_attempts_check check (max_attempts between 1 and 10);
 alter table public.quiz_attempts add column if not exists classroom_id uuid references public.classrooms(id) on delete set null;
 
 create or replace function public.is_admin()

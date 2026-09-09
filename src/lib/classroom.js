@@ -225,7 +225,10 @@ export async function submitUnfinishedQuizAttempts() {
 }
 
 export async function getStudentAttempts() {
-  const { data, error } = await supabase.from('quiz_attempts').select('*').eq('status', 'submitted').order('completed_at', { ascending: false });
+  const { data, error } = await supabase.from('quiz_attempts')
+    .select('*, quizzes(title, max_attempts)')
+    .eq('status', 'submitted')
+    .order('completed_at', { ascending: false });
   if (error) throw error;
   return data || [];
 }
@@ -240,7 +243,9 @@ export async function getTeacherStudents() {
 
 export async function getTeacherAttempts() {
   const { data, error } = await supabase.from('quiz_attempts')
-    .select('*, profiles!quiz_attempts_student_id_fkey(full_name, email), quizzes(title)').eq('status', 'submitted').order('completed_at', { ascending: false });
+    .select('*, profiles!quiz_attempts_student_id_fkey(full_name, email), quizzes(title, max_attempts)')
+    .eq('status', 'submitted')
+    .order('completed_at', { ascending: false });
   if (error) throw error;
   return data || [];
 }

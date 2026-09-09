@@ -98,7 +98,7 @@ async function startQuiz(container, questionCount, difficulty, questions = null,
     activeAttemptId = attempt?.id || null;
   } catch (error) {
     console.warn('Could not start cloud quiz attempt:', error.message);
-    if (assignedQuiz && /already been taken/i.test(error.message || '')) {
+    if (assignedQuiz && /already been taken|maximum number of attempts|attempt limit/i.test(error.message || '')) {
       sessionStorage.removeItem('assignedQuiz');
       navigate('#/quiz');
       return;

@@ -9,6 +9,8 @@ const quizMeta = type => ({
   word_sign: { label: 'Word sign quiz', icon: 'scan-face', route: '#/quiz/word-sign' }
 })[type] || { label: 'Quiz', icon: 'clipboard-check', route: '#/quiz' };
 const questionLabel = count => `${count} ${Number(count) === 1 ? 'question' : 'questions'}`;
+const getMaxAttempts = quiz => Math.max(1, Number(quiz?.max_attempts || 1));
+const getQuizAttempts = (attempts, quizId) => attempts.filter(attempt => attempt.quiz_id === quizId);
 const quizInfo = quiz => {
   if (quiz.quiz_type === 'word_sign' && quiz.settings?.quiz_type === 'two_words') {
     return `${questionLabel(quiz.question_count)} · ${(quiz.settings.words || []).join(' → ')} · signs must be in order`;
@@ -32,16 +34,20 @@ export async function mount(container) {
 function render(container, quizzes, attempts) {
   const activities = quizzes.map(item => ({ ...item, kind: 'quiz' }));
   const card = activity => {
-    const alreadyTaken = attempts.some(attempt => attempt.quiz_id === activity.id);
+    const usedAttempts = getQuizAttempts(attempts, activity.id).length;
+    const maxAttempts = getMaxAttempts(activity);
+    const attemptsComplete = usedAttempts >= maxAttempts;
+    const nextAttempt = Math.min(usedAttempts + 1, maxAttempts);
     const meta = quizMeta(activity.quiz_type);
     const info = quizInfo(activity);
-    return `<article class="asl-assignment asl-classroom-activity ${alreadyTaken ? 'asl-classroom-activity--completed' : ''}" data-kind="${activity.kind}" data-id="${activity.id}">
+    return `<article class="asl-assignment asl-classroom-activity ${attemptsComplete ? 'asl-classroom-activity--completed' : ''}" data-kind="${activity.kind}" data-id="${activity.id}">
       <span class="asl-classroom-activity__icon"><i data-lucide="${meta.icon}"></i></span>
       <span class="asl-assignment__type">${meta.label}</span>
-      ${alreadyTaken ? '<span class="asl-status asl-status--taken">Already taken</span>' : ''}
+      <span class="asl-status ${attemptsComplete ? 'asl-status--taken' : ''}">${usedAttempts}/${maxAttempts} attempts used</span>
       <h3>${escape(activity.title)}</h3>
       <p>${escape(info)}</p>
-      <button class="asl-btn asl-btn--secondary activity-open" data-id="${activity.id}" ${alreadyTaken ? 'disabled aria-disabled="true"' : ''}>${alreadyTaken ? 'Already taken' : 'Start quiz'} <i data-lucide="arrow-right"></i></button>
+      <br/>
+      <button class="asl-btn asl-btn--secondary activity-open" data-id="${activity.id}" ${attemptsComplete ? 'disabled aria-disabled="true"' : ''}>${attemptsComplete ? 'Attempts complete' : `Start attempt ${nextAttempt}`} <i data-lucide="arrow-right"></i></button>
     </article>`;
   };
   container.innerHTML = `
@@ -57,7 +63,7 @@ function render(container, quizzes, attempts) {
   createIcons({ icons });
   container.querySelectorAll('.activity-open').forEach(button => button.addEventListener('click', () => {
     const activity = activities.find(item => item.id === button.dataset.id);
-    if (attempts.some(attempt => attempt.quiz_id === activity.id)) return;
+    if (getQuizAttempts(attempts, activity.id).length >= getMaxAttempts(activity)) return;
     sessionStorage.setItem('assignedQuiz', JSON.stringify(activity));
     navigate(quizMeta(activity.quiz_type).route);
   }));

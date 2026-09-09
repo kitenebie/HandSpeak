@@ -13,6 +13,38 @@ const quizTypeLabel = type => ({
 })[type] || type;
 const wordQuizType = quiz => quiz?.settings?.quiz_type === 'two_words' ? 'two_words' : 'single_word';
 const wordQuizTypeLabel = quiz => wordQuizType(quiz) === 'two_words' ? 'Two Words' : 'Single Word';
+const getMaxAttempts = quiz => Math.max(1, Number(quiz?.max_attempts || 1));
+const ordinalAttempt = value => ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'][value - 1] || `Attempt ${value}`;
+const attemptDate = value => value ? new Date(value).toLocaleDateString() : 'In progress';
+
+function attemptsWithNumbers(attempts) {
+  const counts = new Map();
+  return [...attempts]
+    .sort((a, b) => new Date(a.started_at || a.completed_at || 0) - new Date(b.started_at || b.completed_at || 0))
+    .map(attempt => {
+      const key = `${attempt.student_id || 'student'}:${attempt.quiz_id || attempt.id}`;
+      const attemptNumber = (counts.get(key) || 0) + 1;
+      counts.set(key, attemptNumber);
+      return { ...attempt, attemptNumber };
+    });
+}
+
+function renderStudentAttemptHistory(students, attempts) {
+  const numbered = attemptsWithNumbers(attempts);
+  return students.map(student => {
+    const own = numbered
+      .filter(attempt => attempt.student_id === student.id)
+      .sort((a, b) => new Date(b.completed_at || b.started_at || 0) - new Date(a.completed_at || a.started_at || 0));
+    const attemptList = own.length ? own.map(attempt => `
+      <div class="asl-attempt-tree__attempt">
+        <span>${escape(attempt.quizzes?.title || quizTypeLabel(attempt.quiz_type))}</span>
+        <strong>${ordinalAttempt(attempt.attemptNumber)} attempt</strong>
+        <small>${attempt.score}/${attempt.max_score} · ${Math.round(attempt.accuracy || 0)}% · ${attemptDate(attempt.completed_at)}</small>
+      </div>
+    `).join('') : '<span class="asl-muted">No quiz attempts yet.</span>';
+    return `<tr><td>${escape(student.full_name || student.email)}</td><td><div class="asl-attempt-tree">${attemptList}</div></td></tr>`;
+  }).join('') || '<tr><td colspan="2" class="asl-empty">No students have registered yet.</td></tr>';
+}
 
 export async function mount(container) {
   container.innerHTML = '<div class="asl-container"><div class="asl-card">Loading teacher panel…</div></div>';
@@ -57,6 +89,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
               <small>Two-word signs are checked in the selected order and count as one question.</small>
             </div>
             <label id="question-count-field">Questions per student<input name="questionCount" type="number" min="1" max="26" value="10" required></label>
+            <label>Allowed attempts per student<input name="maxAttempts" type="number" min="1" max="10" value="1" required><small>Set 2 if students can take the same quiz twice.</small></label>
             <div class="asl-form-row"><label>Available from<input name="availableFrom" type="datetime-local"></label><label>Available until<input name="availableUntil" type="datetime-local"></label></div>
             <label class="asl-checkbox"><input type="checkbox" name="published" checked> Publish immediately</label>
             <div id="create-message" class="asl-form__message" aria-live="polite"></div><button class="asl-btn asl-btn--primary" type="submit">Create quiz</button>
@@ -68,8 +101,8 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
         }).join('') || '<tr><td colspan="4" class="asl-empty">No students have registered yet.</td></tr>'}</tbody></table></div>
         </section>
       </div>
-      <section class="asl-section"><h2>Quiz list</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Status</th><th>Created</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}${q.quiz_type === 'word_sign' ? `<br><small>${wordQuizTypeLabel(q)}</small>` : ''}</td><td>${q.question_count}</td><td><span class="asl-status ${q.is_published ? 'asl-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="asl-empty">Create your first quiz above.</td></tr>'}</tbody></table></div></section>
-      <section class="asl-section"><h2>Student scores</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Quiz</th><th>Score</th><th>Accuracy</th><th>Completed</th></tr></thead><tbody>${attempts.slice(0, 20).map(a => `<tr><td>${escape(a.profiles?.full_name || a.profiles?.email || 'Student')}</td><td>${escape(a.quizzes?.title || quizTypeLabel(a.quiz_type))}</td><td>${a.score}/${a.max_score}</td><td>${Math.round(a.accuracy || 0)}%</td><td>${new Date(a.completed_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="asl-empty">Scores will appear when students complete quizzes.</td></tr>'}</tbody></table></div></section>
+      <section class="asl-section"><h2>Quiz list</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Attempts</th><th>Status</th><th>Created</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}${q.quiz_type === 'word_sign' ? `<br><small>${wordQuizTypeLabel(q)}</small>` : ''}</td><td>${q.question_count}</td><td>${getMaxAttempts(q)}</td><td><span class="asl-status ${q.is_published ? 'asl-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="6" class="asl-empty">Create your first quiz above.</td></tr>'}</tbody></table></div></section>
+      <section class="asl-section"><h2>Student attempt history</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Recorded scores per attempt</th></tr></thead><tbody>${renderStudentAttemptHistory(students, attempts)}</tbody></table></div></section>
     </div>`;
 
   const drawerEntries = [];
@@ -169,6 +202,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
     const fd = new FormData(form); const message = container.querySelector('#create-message'); const button = form.querySelector('button');
     const quizType = fd.get('quizType');
     const questionCount = Number(fd.get('questionCount'));
+    const maxAttempts = Number(fd.get('maxAttempts'));
     const rangeStart = fd.get('rangeStart'); const rangeEnd = fd.get('rangeEnd');
     const selectedWords = String(fd.get('words') || '').toUpperCase().split(',').map(word => word.trim()).filter(Boolean);
     const selectedWordQuizType = fd.get('wordQuizType') === 'two_words' ? 'two_words' : 'single_word';
@@ -183,6 +217,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
     if (quizType === 'word_sign' && selectedWordQuizType === 'single_word' && !selectedWordSigns.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Select at least one recognizable word.'; return; }
     if (quizType === 'word_sign' && selectedWordQuizType === 'single_word' && questionCount > selectedWordSigns.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'The question count cannot exceed the selected words.'; return; }
     if (quizType === 'word_sign' && selectedWordQuizType === 'two_words' && selectedPhrase.length !== 2) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Select both words from the trained model list.'; return; }
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Allowed attempts must be between 1 and 10.'; return; }
     button.disabled = true;
     try {
       if (!classroom) throw new Error('Your teacher room is not ready yet. Contact an administrator.');
@@ -191,7 +226,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
         : quizType === 'word_sign'
           ? { quiz_type: selectedWordQuizType, words: selectedWordQuizType === 'two_words' ? selectedPhrase : selectedWordSigns }
           : { words: selectedWords };
-      await createQuiz({ classroom_id: classroom.id, title: fd.get('title').trim(), quiz_type: quizType, question_count: selectedWordQuizType === 'two_words' && quizType === 'word_sign' ? 1 : questionCount, is_published: fd.has('published'), available_from: fd.get('availableFrom') || null, available_until: fd.get('availableUntil') || null, settings });
+      await createQuiz({ classroom_id: classroom.id, title: fd.get('title').trim(), quiz_type: quizType, question_count: selectedWordQuizType === 'two_words' && quizType === 'word_sign' ? 1 : questionCount, max_attempts: maxAttempts, is_published: fd.has('published'), available_from: fd.get('availableFrom') || null, available_until: fd.get('availableUntil') || null, settings });
       message.className = 'asl-form__message asl-form__message--success'; message.textContent = 'Quiz created. Refreshing the list…';
       closeDrawers();
       setTimeout(() => mount(container), 500);

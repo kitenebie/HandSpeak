@@ -14,6 +14,21 @@ const quizMeta = type => ({
 })[type] || { label: 'Quiz', detail: () => '', route: '#/quiz' };
 
 const escape = (value = '') => String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+const getMaxAttempts = quiz => Math.max(1, Number(quiz?.max_attempts || 1));
+const getQuizAttempts = (attempts, quizId) => attempts.filter(attempt => attempt.quiz_id === quizId);
+const ordinalAttempt = value => ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'][value - 1] || `Attempt ${value}`;
+const attemptsWithNumbers = attempts => {
+  const counts = new Map();
+  return [...attempts]
+    .sort((a, b) => new Date(a.started_at || a.completed_at || 0) - new Date(b.started_at || b.completed_at || 0))
+    .map(attempt => {
+      const key = `${attempt.student_id || 'student'}:${attempt.quiz_id || attempt.id}`;
+      const attemptNumber = (counts.get(key) || 0) + 1;
+      counts.set(key, attemptNumber);
+      return { ...attempt, attemptNumber };
+    })
+    .sort((a, b) => new Date(b.completed_at || b.started_at || 0) - new Date(a.completed_at || a.started_at || 0));
+};
 
 export async function mount(container) {
   container.innerHTML = '<div class="asl-container"><div class="asl-card">Loading your classroom…</div></div>';
@@ -23,24 +38,29 @@ export async function mount(container) {
     if (profile.role === 'teacher') { navigate('#/teacher'); return; }
     if (profile.role === 'admin') { navigate('#/admin'); return; }
     const [quizzes, attempts] = await Promise.all([getPublishedQuizzes(), getStudentAttempts()]);
+    const numberedAttempts = attemptsWithNumbers(attempts);
+    const openQuizzes = quizzes.filter(quiz => getQuizAttempts(attempts, quiz.id).length < getMaxAttempts(quiz));
     const average = attempts.length ? Math.round(attempts.reduce((sum, item) => sum + Number(item.accuracy || 0), 0) / attempts.length) : 0;
     container.innerHTML = `
       <div class="asl-dashboard asl-container">
         <div class="asl-dashboard__heading"><div><span class="asl-eyebrow">Student dashboard</span><h1>Hello, ${escape(profile.full_name || 'learner')}!</h1><p>Pick up where you left off or take a quiz assigned by your teacher.</p></div><button id="go-learn" class="asl-btn asl-btn--secondary">Practice A–Z</button></div>
-        <div class="asl-metric-grid"><div class="asl-metric"><strong>${attempts.length}</strong><span>Quizzes completed</span></div><div class="asl-metric"><strong>${average}%</strong><span>Average score</span></div><div class="asl-metric"><strong>${quizzes.length}</strong><span>Available quizzes</span></div></div>
+        <div class="asl-metric-grid"><div class="asl-metric"><strong>${attempts.length}</strong><span>Quiz attempts completed</span></div><div class="asl-metric"><strong>${average}%</strong><span>Average score</span></div><div class="asl-metric"><strong>${openQuizzes.length}</strong><span>Quizzes with attempts left</span></div></div>
         <section class="asl-section"><div class="asl-section__heading"><div><h2>Teacher quizzes</h2><p>Questions are randomized for each attempt.</p></div></div><div id="assigned-quizzes" class="asl-dashboard-grid"></div></section>
-        <section class="asl-section"><h2>Recent scores</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Score</th><th>Accuracy</th><th>Completed</th></tr></thead><tbody>${attempts.slice(0, 8).map(a => `<tr><td>${escape(quizMeta(a.quiz_type).label.replace(/^[^ ]+ /, ''))}</td><td>${a.score} / ${a.max_score}</td><td>${Math.round(a.accuracy || 0)}%</td><td>${new Date(a.completed_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="4" class="asl-empty">No scores yet — your results will appear here.</td></tr>'}</tbody></table></div></section>
+        <section class="asl-section"><h2>Recent scores</h2><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Attempt</th><th>Score</th><th>Accuracy</th><th>Completed</th></tr></thead><tbody>${numberedAttempts.slice(0, 8).map(a => `<tr><td>${escape(a.quizzes?.title || quizMeta(a.quiz_type).label.replace(/^[^ ]+ /, ''))}</td><td>${ordinalAttempt(a.attemptNumber)} attempt</td><td>${a.score} / ${a.max_score}</td><td>${Math.round(a.accuracy || 0)}%</td><td>${new Date(a.completed_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="asl-empty">No scores yet — your results will appear here.</td></tr>'}</tbody></table></div></section>
       </div>`;
     const list = container.querySelector('#assigned-quizzes');
     list.innerHTML = quizzes.length ? quizzes.map((quiz, index) => {
-      const alreadyTaken = attempts.some(attempt => attempt.quiz_id === quiz.id);
+      const usedAttempts = getQuizAttempts(attempts, quiz.id).length;
+      const maxAttempts = getMaxAttempts(quiz);
+      const attemptsComplete = usedAttempts >= maxAttempts;
+      const nextAttempt = Math.min(usedAttempts + 1, maxAttempts);
       const meta = quizMeta(quiz.quiz_type);
-      return `<article class="asl-assignment ${alreadyTaken ? 'asl-classroom-activity--completed' : ''}"><span class="asl-assignment__type">${meta.label}</span>${alreadyTaken ? '<span class="asl-status asl-status--taken">Already taken</span>' : ''}<h3>${escape(quiz.title)}</h3><p>${quiz.question_count} ${Number(quiz.question_count) === 1 ? 'question' : 'questions'} · ${escape(meta.detail(quiz))}</p><button class="asl-btn asl-btn--primary start-assignment" data-index="${index}" ${alreadyTaken ? 'disabled aria-disabled="true"' : ''}>${alreadyTaken ? 'Already taken' : 'Start quiz'}</button></article>`;
+      return `<article class="asl-assignment ${attemptsComplete ? 'asl-classroom-activity--completed' : ''}"><span class="asl-assignment__type">${meta.label}</span><span class="asl-status ${attemptsComplete ? 'asl-status--taken' : ''}">${usedAttempts}/${maxAttempts} attempts used</span><h3>${escape(quiz.title)}</h3><p>${quiz.question_count} ${Number(quiz.question_count) === 1 ? 'question' : 'questions'} · ${escape(meta.detail(quiz))}</p><br/><button class="asl-btn asl-btn--primary start-assignment" data-index="${index}" ${attemptsComplete ? 'disabled aria-disabled="true"' : ''}>${attemptsComplete ? 'Attempts complete' : `Start attempt ${nextAttempt}`}</button></article>`;
     }).join('') : '<div class="asl-empty-card">No teacher quizzes are open right now.</div>';
     container.querySelector('#go-learn').addEventListener('click', () => navigate('#/learn'));
     list.querySelectorAll('.start-assignment').forEach(button => button.addEventListener('click', () => {
       const quiz = quizzes[Number(button.dataset.index)];
-      if (attempts.some(attempt => attempt.quiz_id === quiz.id)) return;
+      if (getQuizAttempts(attempts, quiz.id).length >= getMaxAttempts(quiz)) return;
       sessionStorage.setItem('assignedQuiz', JSON.stringify(quiz));
       navigate(quizMeta(quiz.quiz_type).route);
     }));

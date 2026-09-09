@@ -21,6 +21,7 @@ import { updateDebugPanel } from '../main.js';
 import { saveAttempt, startQuizAttempt, submitQuizAttempt, updateQuizAttempt } from '../lib/classroom.js';
 
 const CAPTURE_DURATION_MS = 3000;
+const COUNTDOWN_START_SECONDS = 7;
 const SAMPLE_INTERVAL_MS = 50;
 const MIN_VALID_FRAMES = 10;
 const CONFIDENCE_THRESHOLD = 0.60;
@@ -30,6 +31,8 @@ let camera = null;
 let quiz = null;
 let assignedQuiz = null;
 let capture = null;
+let countdownTimer = null;
+let countdownRemaining = null;
 let processing = false;
 let activeAttemptId = null;
 let attemptFinalized = false;
@@ -140,7 +143,7 @@ export async function mount(container) {
       });
       activeAttemptId = attempt?.id || null;
     } catch (error) {
-      if (assignedQuiz && /already been taken/i.test(error.message || '')) {
+      if (assignedQuiz && /already been taken|maximum number of attempts|attempt limit/i.test(error.message || '')) {
         sessionStorage.removeItem('assignedQuiz');
         navigate('#/quiz');
         return;
@@ -217,6 +220,41 @@ function setStatus(message, type = '') {
 }
 
 function beginCapture() {
+  if (capture || countdownTimer || processing || !camera?.isActive()) return;
+  countdownRemaining = COUNTDOWN_START_SECONDS;
+  camera.showCountdown(countdownRemaining);
+  updateCountdownStatus();
+  const button = pageContainer.querySelector('#word-sign-capture');
+  button.disabled = true;
+  button.textContent = `Starting in ${countdownRemaining}…`;
+
+  countdownTimer = setInterval(() => {
+    countdownRemaining -= 1;
+    if (countdownRemaining >= 0) {
+      camera?.showCountdown(countdownRemaining);
+      updateCountdownStatus();
+      if (button) button.textContent = countdownRemaining ? `Starting in ${countdownRemaining}…` : 'Starting…';
+      return;
+    }
+    clearCountdown();
+    startRecordingCapture();
+  }, 1000);
+}
+
+function updateCountdownStatus() {
+  const expectedWord = quiz?.getCurrentQuestion()?.expectedWord;
+  const prompt = expectedWord ? ` Get ready to sign ${expectedWord}.` : '';
+  setStatus(`Recording starts in ${countdownRemaining}.${prompt}`);
+}
+
+function clearCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = null;
+  countdownRemaining = null;
+  camera?.hideCountdown();
+}
+
+function startRecordingCapture() {
   if (capture || processing || !camera?.isActive()) return;
   capture = {
     startedAt: performance.now(),
@@ -376,6 +414,7 @@ export function unmount() {
   window.removeEventListener('pagehide', handleQuizExit);
   clearTimeout(progressSaveTimer);
   clearTimeout(transitionTimer);
+  clearCountdown();
   if (animFrameId) cancelAnimationFrame(animFrameId);
   animFrameId = null;
   capture = null;

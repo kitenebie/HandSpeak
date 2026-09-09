@@ -31,12 +31,24 @@ for update using (student_id = auth.uid()) with check (student_id = auth.uid());
 
 create or replace function public.prevent_duplicate_quiz_attempt()
 returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  allowed_attempts integer := 1;
+  used_attempts integer := 0;
 begin
-  if new.quiz_id is not null and exists (
-    select 1 from public.quiz_attempts
-    where quiz_id = new.quiz_id and student_id = new.student_id
-  ) then
-    raise exception 'This quiz has already been taken.' using errcode = 'P0001';
+  if new.quiz_id is not null then
+    select coalesce(max_attempts, 1)
+      into allowed_attempts
+      from public.quizzes
+      where id = new.quiz_id;
+
+    select count(*)
+      into used_attempts
+      from public.quiz_attempts
+      where quiz_id = new.quiz_id and student_id = new.student_id;
+
+    if used_attempts >= allowed_attempts then
+      raise exception 'This quiz has reached the maximum number of attempts.' using errcode = 'P0001';
+    end if;
   end if;
   return new;
 end;
