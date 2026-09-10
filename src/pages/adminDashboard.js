@@ -78,7 +78,7 @@ function renderDashboard({ teachers, students, classrooms }) {
     </div>`;
 }
 
-function renderAdminDashboardCharts(container, { teachers, students, classrooms }) {
+function renderAdminDashboardCharts(container, { teachers, students, classrooms, memberships }) {
   const genderKeys = ['female', 'male', 'other', 'unspecified'];
   const genderLabels = genderKeys.map(genderLabel);
   renderApexChart(container, '#admin-population-gender-chart', {
@@ -92,7 +92,7 @@ function renderAdminDashboardCharts(container, { teachers, students, classrooms 
   });
   renderApexChart(container, '#admin-students-teacher-chart', {
     labels: classrooms.map(room => room.profiles?.full_name || room.profiles?.email || room.name),
-    values: classrooms.map(room => students.filter(student => student.classroom_id === room.id).length),
+    values: classrooms.map(room => new Set(memberships.filter(member => member.classroom_id === room.id).map(member => member.student_id)).size),
     name: 'Students'
   });
 }
@@ -164,12 +164,7 @@ export async function mount(container) {
       getAdminQuizzes(),
       getTeacherInvites()
     ]);
-    const classroomById = new Map(classrooms.map(room => [room.id, room]));
-    const enrichedStudents = students.map(student => {
-      const membership = memberships.find(item => item.student_id === student.id);
-      return { ...student, classroom_id: membership?.classroom_id || null, classroom: membership ? classroomById.get(membership.classroom_id) : null };
-    });
-    render(container, { teachers, students: enrichedStudents, classrooms, memberships, quizzes, invites });
+    render(container, { teachers, students, classrooms, memberships, quizzes, invites });
   } catch (error) {
     container.innerHTML = `<div class="FSL-container"><div class="FSL-card"><h2>Administrator setup needed</h2><p>${escape(error.message)}</p><p>Run the updated Supabase schema and admin seed scripts first.</p></div></div>`;
   }

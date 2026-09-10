@@ -14,6 +14,7 @@ import * as spellingQuizPage from './pages/spellingQuiz.js';
 import * as wordSignQuizPage from './pages/wordSignQuiz.js';
 import * as quizResultsPage from './pages/quizResults.js';
 import * as authPage from './pages/auth.js';
+import * as studentRoomsPage from './pages/studentRooms.js';
 import * as studentDashboardPage from './pages/studentDashboard.js';
 import * as teacherDashboardPage from './pages/teacherDashboard.js';
 import * as adminDashboardPage from './pages/adminDashboard.js';
@@ -113,6 +114,7 @@ async function init() {
       '/auth/forgot-password': authPage,
       '/auth/reset-password': authPage,
       '/student': studentDashboardPage,
+      '/student/rooms': studentRoomsPage,
       '/teacher': teacherDashboardPage,
       '/teacher/activities': teacherDashboardPage,
       '/teacher/students': teacherDashboardPage,

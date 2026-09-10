@@ -51,6 +51,32 @@ export async function joinClassroomByCode(code) {
   return data;
 }
 
+export async function getStudentClassrooms() {
+  const session = await getSession();
+  if (!session) return [];
+  const { data, error } = await supabase.from('classroom_members')
+    .select('classrooms(id, name, join_code, teacher_id, is_open)')
+    .eq('student_id', session.user.id);
+  if (error) throw error;
+  return (data || []).map(item => item.classrooms).filter(Boolean);
+}
+
+export async function joinClassroomsByCodes(value) {
+  const codes = [...new Set(String(value || '').toUpperCase().split(/[\s,;]+/).filter(Boolean))];
+  if (!codes.length) throw new Error('Enter at least one room code.');
+  if (codes.length > 20) throw new Error('Enter up to 20 room codes at a time.');
+  const results = [];
+  for (const code of codes) {
+    try {
+      const roomId = await joinClassroomByCode(code);
+      results.push({ code, roomId });
+    } catch (error) {
+      results.push({ code, error: error.message || 'Could not join this room.' });
+    }
+  }
+  return results;
+}
+
 export async function signIn({ email, password }) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
@@ -103,6 +129,12 @@ export async function getPublishedQuizzes() {
   return data || [];
 }
 
+export async function getMyTeacherNames() {
+  const { data, error } = await supabase.rpc('get_my_teacher_names');
+  if (error) throw error;
+  return data || [];
+}
+
 export async function getTeacherQuizzes() {
   const { data, error } = await supabase.from('quizzes').select('*').order('created_at', { ascending: false });
   if (error) throw error;
@@ -111,7 +143,7 @@ export async function getTeacherQuizzes() {
 
 export async function getClassroomMaterials() {
   const { data, error } = await supabase.from('classroom_materials')
-    .select('*').eq('is_published', true).order('created_at', { ascending: false });
+    .select('*, classrooms(name)').eq('is_published', true).order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
 }
