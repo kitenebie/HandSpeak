@@ -19,12 +19,13 @@ export async function getProfile(force = false) {
   return data;
 }
 
-export async function signUp({ fullName, email, password, accountType = 'student', registrationCode }) {
+export async function signUp({ fullName, email, password, gender = 'unspecified', accountType = 'student', registrationCode }) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { data: {
       full_name: fullName,
+      gender,
       ...(accountType === 'teacher' ? { teacher_invite_code: registrationCode } : { classroom_code: registrationCode })
     } }
   });
@@ -282,6 +283,32 @@ export async function getTeacherStudents() {
     .order('joined_at');
   if (error) throw error;
   return (data || []).map(item => ({ ...item.profiles, joined_at: item.joined_at }));
+}
+
+export async function updateTeacherProfile(teacherId, { full_name, gender }) {
+  const name = String(full_name || '').trim();
+  if (!name || name.length > 100) throw new Error('Enter a teacher name of 1–100 characters.');
+  if (!['female', 'male', 'other', 'unspecified'].includes(gender)) throw new Error('Select a valid gender.');
+  const { data, error } = await supabase.from('profiles')
+    .update({ full_name: name, gender })
+    .eq('id', teacherId)
+    .eq('role', 'teacher')
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTeacher(teacherId) {
+  const { data, error } = await supabase.functions.invoke('delete-teacher', {
+    body: { teacherId }
+  });
+  if (error) {
+    const detail = await error.context?.json().catch(() => null);
+    throw new Error(detail?.error || error.message || 'Could not delete teacher.');
+  }
+  if (data?.error) throw new Error(data.error);
+  if (!data?.deleted) throw new Error('Teacher deletion was not confirmed.');
 }
 
 export async function updateStudentProfile(studentId, updates) {

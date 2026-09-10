@@ -36,7 +36,7 @@ function render(container, mode) {
         <h1>${register ? 'Create your account' : 'Welcome back'}</h1>
         <p>${register ? 'Students join their teacher’s room with a room code. Teachers register using an admin invitation code.' : 'Sign in to continue your FSL learning journey.'}</p>
         <form id="auth-form" class="FSL-form">
-          ${register ? '<label>Account type<select name="accountType" id="account-type"><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label>Full name<input required name="fullName" autocomplete="name" placeholder="Your name"></label><label id="registration-code-label">Teacher room code<input required name="registrationCode" autocomplete="off" placeholder="e.g. A1B2C3" maxlength="16" style="text-transform:uppercase"></label>' : ''}
+          ${register ? '<label>Account type<select name="accountType" id="account-type"><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label>Full name<input required name="fullName" autocomplete="name" placeholder="Your name"></label><label>Gender<select name="gender" required><option value="" disabled selected>Select gender</option><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option><option value="unspecified">Prefer not to say</option></select></label><label id="registration-code-label">Teacher room code<input required name="registrationCode" autocomplete="off" placeholder="e.g. A1B2C3" maxlength="16" style="text-transform:uppercase"></label>' : ''}
           <label>Email<input required name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
           <label>Password<input required name="password" type="password" minlength="6" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="At least 6 characters"></label>
           ${!register ? '<div class="FSL-auth__forgot"><a href="#/auth/forgot-password">Forgot password?</a></div>' : ''}
@@ -62,7 +62,7 @@ function render(container, mode) {
         const registrationCode = fields.get('registrationCode').trim().toUpperCase();
         const validCode = await validateRegistrationCode(registrationCode, accountType, fields.get('email'));
         if (!validCode) throw new Error(accountType === 'teacher' ? 'This teacher invitation code does not match the email address.' : 'That teacher room code was not found or is closed.');
-        const result = await signUp({ fullName: fields.get('fullName').trim(), email: fields.get('email'), password: fields.get('password'), accountType, registrationCode });
+        const result = await signUp({ fullName: fields.get('fullName').trim(), email: fields.get('email'), password: fields.get('password'), gender: fields.get('gender'), accountType, registrationCode });
         message.className = 'FSL-form__message FSL-form__message--success';
         message.textContent = result.session ? 'Account created. Redirecting you to your dashboard…' : 'Check your email to confirm your account, then sign in.';
         if (result.session) setTimeout(() => navigate('#/student'), 600);

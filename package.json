@@ -13,7 +13,10 @@
     "@supabase/supabase-js": "^2.112.4",
     "@tensorflow/tfjs": "^4.22.0",
     "apexcharts": "^7.1.0",
-    "lucide": "^1.39.0"
+    "apextree": "^2.1.1",
+    "lucide": "^1.39.0",
+    "lucide-react": "^1.43.0",
+    "react-apexcharts": "^2.1.1"
   },
   "devDependencies": {
     "vite": "^6.3.5"

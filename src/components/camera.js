@@ -213,6 +213,9 @@ export function createCamera(container) {
     showStatus(text) {
       statusDiv.textContent = text;
     },
+    setWideMode(enabled = true) {
+      el.classList.toggle('FSL-camera--wide', Boolean(enabled));
+    },
     setFullscreenPrompt(text) {
       fullscreenPrompt.hidden = !text;
       fullscreenPrompt.textContent = text || '';

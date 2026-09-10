@@ -17,6 +17,7 @@ import { navigate } from '../router.js';
 import { WORDS } from '../data/words.js';
 import { getSupportedWordSigns, normalizeWordSign } from '../data/wordSigns.js';
 import { createIcons, icons } from 'lucide';
+import ApexCharts from 'apexcharts';
 
 const escape = (value = '') => String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -32,6 +33,7 @@ const ordinalAttempt = value => ['First', 'Second', 'Third', 'Fourth', 'Fifth', 
 const attemptDate = value => value ? new Date(value).toLocaleDateString() : 'In progress';
 const actionButton = (action, id, icon, label, variant = '') => `<button type="button" class="FSL-icon-btn ${variant}" data-action="${action}" data-id="${escape(id)}" title="${label}" aria-label="${label}"><i data-lucide="${icon}"></i></button>`;
 let pendingTeacherMessage = null;
+let activeTeacherCharts = [];
 
 function attemptsWithNumbers(attempts) {
   const counts = new Map();
@@ -60,28 +62,40 @@ function getTeacherView() {
   return 'dashboard';
 }
 
-function renderBars(items, emptyLabel = 'No data yet.') {
-  const max = Math.max(1, ...items.map(item => item.value));
-  if (!items.some(item => item.value > 0)) return `<div class="FSL-empty-card">${emptyLabel}</div>`;
-  return `<div class="FSL-bar-chart">${items.map(item => `
-    <div class="FSL-bar-chart__row">
-      <span>${escape(item.label)}</span>
-      <div class="FSL-bar-chart__track"><i style="width:${Math.max(6, Math.round((item.value / max) * 100))}%"></i></div>
-      <strong>${item.value}</strong>
-    </div>`).join('')}</div>`;
+function destroyTeacherCharts() {
+  activeTeacherCharts.forEach(chart => {
+    try { chart.destroy(); } catch {}
+  });
+  activeTeacherCharts = [];
+}
+
+function renderApexChart(container, selector, { labels, values, name, type = 'bar' }) {
+  const target = container.querySelector(selector);
+  if (!target) return;
+  const hasData = values.some(value => Number(value) > 0);
+  const options = {
+    chart: { type, height: 280, toolbar: { show: false }, fontFamily: 'Inter, system-ui, sans-serif' },
+    series: hasData ? (type === 'donut' ? values : [{ name, data: values }]) : [],
+    ...(type === 'donut' ? { labels } : {}),
+    ...(type === 'bar' ? {
+      xaxis: { categories: labels, labels: { style: { colors: '#64748b' } } },
+      yaxis: { labels: { style: { colors: '#64748b' } } },
+      plotOptions: { bar: { borderRadius: 6, columnWidth: '48%' } }
+    } : {}),
+    dataLabels: { enabled: true },
+    colors: ['#2563eb', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6'],
+    grid: { borderColor: '#e2e8f0', strokeDashArray: 4 },
+    legend: { position: 'bottom', labels: { colors: '#334155' } },
+    noData: { text: hasData ? '' : 'No data yet' }
+  };
+  const chart = new ApexCharts(target, options);
+  activeTeacherCharts.push(chart);
+  chart.render();
 }
 
 function renderTeacherDashboardView({ profile, quizzes, students, attempts, classroom }) {
   const attemptedStudents = new Set(attempts.map(a => a.student_id)).size;
   const average = attempts.length ? Math.round(attempts.reduce((sum, item) => sum + Number(item.accuracy || 0), 0) / attempts.length) : 0;
-  const quizTypes = ['alphabet', 'spelling', 'word_sign'].map(type => ({
-    label: quizTypeLabel(type),
-    value: quizzes.filter(quiz => quiz.quiz_type === type).length
-  }));
-  const attemptTypes = ['alphabet', 'spelling', 'word_sign'].map(type => ({
-    label: quizTypeLabel(type),
-    value: attempts.filter(attempt => attempt.quiz_type === type).length
-  }));
   return `
     <div class="FSL-dashboard__heading">
       <div><span class="FSL-eyebrow">Teacher dashboard</span><h1>${escape(profile.full_name || 'Teacher')}’s classroom</h1><p>Quick stats and activity graphs for your class.</p></div>
@@ -89,9 +103,25 @@ function renderTeacherDashboardView({ profile, quizzes, students, attempts, clas
     </div>
     <div class="FSL-metric-grid"><div class="FSL-metric"><strong>${students.length}</strong><span>Registered students</span></div><div class="FSL-metric"><strong>${attemptedStudents}</strong><span>Students assessed</span></div><div class="FSL-metric"><strong>${average}%</strong><span>Class average</span></div><div class="FSL-metric"><strong>${quizzes.filter(q => q.is_published).length}</strong><span>Published quizzes</span></div></div>
     <div class="FSL-report-grid">
-      <section class="FSL-card"><h2>Quiz types</h2>${renderBars(quizTypes, 'No quizzes created yet.')}</section>
-      <section class="FSL-card"><h2>Attempts by activity</h2>${renderBars(attemptTypes, 'No submitted attempts yet.')}</section>
+      <section class="FSL-card"><h2>Quiz types</h2><div id="teacher-quiz-types-chart" class="FSL-apex-chart"></div></section>
+      <section class="FSL-card"><h2>Attempts by activity</h2><div id="teacher-attempt-types-chart" class="FSL-apex-chart"></div></section>
     </div>`;
+}
+
+function renderTeacherDashboardCharts(container, { quizzes, attempts }) {
+  const types = ['alphabet', 'spelling', 'word_sign'];
+  const labels = types.map(type => quizTypeLabel(type));
+  renderApexChart(container, '#teacher-quiz-types-chart', {
+    labels,
+    values: types.map(type => quizzes.filter(quiz => quiz.quiz_type === type).length),
+    name: 'Quizzes',
+    type: 'donut'
+  });
+  renderApexChart(container, '#teacher-attempt-types-chart', {
+    labels,
+    values: types.map(type => attempts.filter(attempt => attempt.quiz_type === type).length),
+    name: 'Attempts'
+  });
 }
 
 function renderCreateQuizCard(supportedWordSigns) {
@@ -184,11 +214,12 @@ export async function mount(container) {
     ]);
     render(container, profile, quizzes, students, attempts, classroom, supportedWordSigns);
   } catch (error) {
-    container.innerHTML = `<div class="FSL-container"><div class="FSL-card"><h2>Teacher panel setup needed</h2><p>${escape(error.message)}</p><p>Run <code>supabase/schema.sql</code> in Supabase before using the panel.</p></div></div>`;
+    container.innerHTML = `<div class="FSL-container"><div class="FSL-card"><h2>Unable to load teacher panel</h2><p>${escape(error.message)}</p><p>Please try reloading the page.</p></div></div>`;
   }
 }
 
 function render(container, profile, quizzes, students, attempts, classroom, supportedWordSigns) {
+  destroyTeacherCharts();
   const quizzesById = new Map(quizzes.map(quiz => [quiz.id, quiz]));
   const studentsById = new Map(students.map(student => [student.id, student]));
   const attemptsById = new Map(attempts.map(attempt => [attempt.id, attempt]));
@@ -267,6 +298,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
     drawer.querySelector('.FSL-form-drawer__close').addEventListener('click', closeDrawers);
   });
   createIcons({ icons });
+  if (view === 'dashboard') renderTeacherDashboardCharts(container, { quizzes, attempts });
 
   const setActionMessage = (text, typeName = 'success') => {
     const message = container.querySelector('#teacher-action-message');
@@ -654,6 +686,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
   });
 }
 export function unmount() {
+  destroyTeacherCharts();
   document.body.classList.remove('FSL-drawer-open');
   document.body.classList.remove('FSL-modal-open');
 }

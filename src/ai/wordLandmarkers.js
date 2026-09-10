@@ -16,17 +16,17 @@ async function createLandmarkers(delegate) {
       baseOptions: { modelAssetPath: HAND_MODEL, delegate },
       runningMode: 'VIDEO',
       numHands: 2,
-      minHandDetectionConfidence: 0.5,
-      minHandPresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5
+      minHandDetectionConfidence: 0.28,
+      minHandPresenceConfidence: 0.28,
+      minTrackingConfidence: 0.28
     }),
     PoseLandmarker.createFromOptions(vision, {
       baseOptions: { modelAssetPath: POSE_MODEL, delegate },
       runningMode: 'VIDEO',
       numPoses: 1,
-      minPoseDetectionConfidence: 0.5,
-      minPosePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
+      minPoseDetectionConfidence: 0.35,
+      minPosePresenceConfidence: 0.35,
+      minTrackingConfidence: 0.35,
       outputSegmentationMasks: false
     })
   ]);
@@ -80,6 +80,7 @@ export function detectWordLandmarks(videoElement, requestedTimestamp = performan
     pose: poseResult.landmarks[0] || null,
     hands: handResult.landmarks,
     handDetected: handResult.landmarks.length > 0,
+    handCount: handResult.landmarks.length,
     poseDetected: poseResult.landmarks.length > 0
   };
 }

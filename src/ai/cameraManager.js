@@ -7,18 +7,28 @@ export class CameraManager {
     async start(videoElement) {
         this.videoElement = videoElement;
         try {
-            this.stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: 'user',
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
+            const videoOptions = [
+                { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } },
+                { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 540 }, frameRate: { ideal: 30, max: 30 } },
+                { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+                true
+            ];
+            let lastError = null;
+            for (const video of videoOptions) {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({ video });
+                    break;
+                } catch (error) {
+                    lastError = error;
                 }
-            });
+            }
+            if (!this.stream) throw lastError || new Error('No camera stream available');
             
             this.videoElement.srcObject = this.stream;
             
             return new Promise((resolve, reject) => {
-                this.videoElement.onloadeddata = () => {
+                this.videoElement.onloadeddata = async () => {
+                    await this.videoElement.play().catch(() => {});
                     resolve();
                 };
                 this.videoElement.onerror = (e) => {

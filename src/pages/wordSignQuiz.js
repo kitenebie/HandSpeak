@@ -23,7 +23,7 @@ import { saveAttempt, startQuizAttempt, submitQuizAttempt, updateQuizAttempt } f
 const CAPTURE_DURATION_MS = 3000;
 const COUNTDOWN_START_SECONDS = 7;
 const SAMPLE_INTERVAL_MS = 50;
-const MIN_VALID_FRAMES = 10;
+const MIN_VALID_HAND_FRAMES = 8;
 const CONFIDENCE_THRESHOLD = 0.60;
 
 let animFrameId = null;
@@ -191,6 +191,7 @@ async function renderQuiz(container) {
     </div>`;
 
   camera = createCamera(container.querySelector('#word-sign-camera'));
+  camera.setWideMode(true);
   updateQuestionDisplay();
   bindQuizControls();
   const captureButton = container.querySelector('#word-sign-capture');
@@ -326,7 +327,8 @@ function startRecordingCapture() {
     startedAt: performance.now(),
     lastSampleAt: 0,
     frames: [],
-    validFrames: 0
+    validHandFrames: 0,
+    validPoseFrames: 0
   };
   const button = pageContainer.querySelector('#word-sign-capture');
   button.disabled = true;
@@ -355,8 +357,11 @@ function startInferenceLoop() {
         setStatus(`Recording… ${(remaining / 1000).toFixed(1)} seconds remaining`);
         if (now - capture.lastSampleAt >= SAMPLE_INTERVAL_MS) {
           capture.lastSampleAt = now;
-          capture.frames.push(buildWordFrameFeatures(landmarks));
-          if (landmarks.poseDetected && landmarks.handDetected) capture.validFrames++;
+          if (landmarks.handDetected) {
+            capture.frames.push(buildWordFrameFeatures(landmarks));
+            capture.validHandFrames++;
+            if (landmarks.poseDetected) capture.validPoseFrames++;
+          }
         }
         if (remaining <= 0) finishCapture();
       }
@@ -364,11 +369,15 @@ function startInferenceLoop() {
       if (now - lastDebugUpdate >= 500) {
         lastDebugUpdate = now;
         const info = getWordModelInfo();
+        camera.showStatus(landmarks.handDetected
+          ? `Camera Status: Active - tracking ${landmarks.handCount} hand${landmarks.handCount === 1 ? '' : 's'}`
+          : 'Camera Status: Active - move both hands fully into frame');
         updateDebugPanel({
           modelLoaded: isWordModelLoaded(),
           mediapipeReady: areWordLandmarkersReady(),
           cameraActive: camera.isActive(),
           handDetected: landmarks.handDetected,
+          poseDetected: landmarks.poseDetected,
           inputShape: info.inputShape?.slice(1).join(' × '),
           outputClasses: info.labels?.length,
           prediction: processing ? 'Processing sequence' : null
@@ -388,9 +397,9 @@ async function finishCapture() {
   setStatus('Analyzing your hand movement and posture…');
 
   try {
-    if (completedCapture.validFrames < MIN_VALID_FRAMES) {
-      setStatus('Not enough hand and posture landmarks were visible. Adjust your framing and record again.', 'error');
-      camera?.showFullscreenFeedback('Not enough visible landmarks.', 'error');
+    if (completedCapture.validHandFrames < MIN_VALID_HAND_FRAMES) {
+      setStatus('Not enough hand landmarks were visible. Keep both hands inside the camera box and record again.', 'error');
+      camera?.showFullscreenFeedback('Hands not visible enough.', 'error');
       enableCaptureButton('Try recording again');
       return;
     }
