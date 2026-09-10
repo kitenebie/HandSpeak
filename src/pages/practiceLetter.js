@@ -6,7 +6,7 @@ import { VALID_LETTERS, isValidLetterIndex } from '../data/alphabet.js';
 import { saveLetterPracticed } from '../utils/storage.js';
 import { navigate } from '../router.js';
 import { updateDebugPanel } from '../main.js';
-import { isLoaded, getModelInfo } from '../ai/aslModel.js';
+import { isLoaded, getModelInfo } from '../ai/FSLModel.js';
 import { isReady } from '../ai/handLandmarker.js';
 
 let animFrameId = null;
@@ -25,15 +25,15 @@ export async function mount(container, params) {
   answered = false;
 
   container.innerHTML = `
-    <div class="asl-practice asl-container">
-      <div class="asl-practice__layout">
-        <div class="asl-practice__info asl-card">
-          <div class="asl-text-center">
+    <div class="FSL-practice FSL-container">
+      <div class="FSL-practice__layout">
+        <div class="FSL-practice__info FSL-card">
+          <div class="FSL-text-center">
             <span style="color: var(--color-text-light); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px;">Practice Letter</span>
-            <div class="asl-target-letter" style="margin: 0.5rem 0;">${targetLetter}</div>
+            <div class="FSL-target-letter" style="margin: 0.5rem 0;">${targetLetter}</div>
           </div>
         </div>
-        <div class="asl-practice__camera">
+        <div class="FSL-practice__camera">
           <div id="camera-container" style="width: 100%;"></div>
           <div id="prediction-container" style="width: 100%;"></div>
         </div>

@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'aslProgress';
+const STORAGE_KEY = 'FSLProgress';
 
 const DEFAULT_STATE = {
   lettersPracticed: [],

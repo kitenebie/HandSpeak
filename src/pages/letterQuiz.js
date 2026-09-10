@@ -6,7 +6,7 @@ import { LetterQuizEngine, DIFFICULTY } from '../utils/quiz.js';
 import { saveQuizResult } from '../utils/storage.js';
 import { navigate } from '../router.js';
 import { updateDebugPanel } from '../main.js';
-import { isLoaded, getModelInfo } from '../ai/aslModel.js';
+import { isLoaded, getModelInfo } from '../ai/FSLModel.js';
 import { isReady } from '../ai/handLandmarker.js';
 import { saveAttempt, startQuizAttempt, submitQuizAttempt, updateQuizAttempt } from '../lib/classroom.js';
 
@@ -117,24 +117,24 @@ async function startQuiz(container, questionCount, difficulty, questions = null,
   window.addEventListener('pagehide', handleQuizExit);
 
   container.innerHTML = `
-    <div class="asl-quiz asl-container">
-      <div class="asl-quiz__layout">
-        <div class="asl-quiz__info asl-card">
-          <div class="asl-quiz__header" style="margin-bottom: 0;"><div class="asl-quiz__question-counter" id="question-counter"></div></div>
+    <div class="FSL-quiz FSL-container">
+      <div class="FSL-quiz__layout">
+        <div class="FSL-quiz__info FSL-card">
+          <div class="FSL-quiz__header" style="margin-bottom: 0;"><div class="FSL-quiz__question-counter" id="question-counter"></div></div>
           
-          <div class="asl-text-center" style="margin: 1.5rem 0;">
+          <div class="FSL-text-center" style="margin: 1.5rem 0;">
             <span style="color: var(--color-text-light); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;">Show the sign for</span>
-            <div class="asl-target-letter" id="target-letter-display" style="margin: 0.5rem 0;"></div>
+            <div class="FSL-target-letter" id="target-letter-display" style="margin: 0.5rem 0;"></div>
           </div>
-          <div class="asl-quiz__actions">
-            <button id="letter-prev" class="asl-btn asl-btn--secondary" type="button">Previous</button>
-            <button id="letter-skip" class="asl-btn asl-btn--secondary" type="button">Skip</button>
-            <button id="letter-submit" class="asl-btn asl-btn--primary" type="button" hidden style="display:none" aria-hidden="true">Submit quiz</button>
+          <div class="FSL-quiz__actions">
+            <button id="letter-prev" class="FSL-btn FSL-btn--secondary" type="button">Previous</button>
+            <button id="letter-skip" class="FSL-btn FSL-btn--secondary" type="button">Skip</button>
+            <button id="letter-submit" class="FSL-btn FSL-btn--primary" type="button" hidden style="display:none" aria-hidden="true">Submit quiz</button>
           </div>
 
         </div>
 
-        <div class="asl-practice__camera">
+        <div class="FSL-practice__camera">
           <div id="camera-container" style="width: 100%;"></div>
           <div id="prediction-container" style="width: 100%;"></div>
         </div>

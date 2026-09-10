@@ -19,7 +19,7 @@ const quizInfo = quiz => {
 };
 
 export async function mount(container) {
-  container.innerHTML = '<div class="asl-container"><div class="asl-card">Loading available quizzes…</div></div>';
+  container.innerHTML = '<div class="FSL-container"><div class="FSL-card">Loading available quizzes…</div></div>';
   try {
     const profile = await getProfile();
     if (!profile) { navigate('#/auth/login'); return; }
@@ -27,7 +27,7 @@ export async function mount(container) {
     const [quizzes, attempts] = await Promise.all([getPublishedQuizzes(), getStudentAttempts()]);
     render(container, quizzes, attempts);
   } catch (error) {
-    container.innerHTML = `<div class="asl-container"><div class="asl-card"><h2>Quizzes unavailable</h2><p>${escape(error.message)}</p><p>Ask your teacher to publish a quiz, or check that the classroom database setup is complete.</p></div></div>`;
+    container.innerHTML = `<div class="FSL-container"><div class="FSL-card"><h2>Quizzes unavailable</h2><p>${escape(error.message)}</p><p>Ask your teacher to publish a quiz, or check that the classroom database setup is complete.</p></div></div>`;
   }
 }
 
@@ -40,24 +40,24 @@ function render(container, quizzes, attempts) {
     const nextAttempt = Math.min(usedAttempts + 1, maxAttempts);
     const meta = quizMeta(activity.quiz_type);
     const info = quizInfo(activity);
-    return `<article class="asl-assignment asl-classroom-activity ${attemptsComplete ? 'asl-classroom-activity--completed' : ''}" data-kind="${activity.kind}" data-id="${activity.id}">
-      <span class="asl-classroom-activity__icon"><i data-lucide="${meta.icon}"></i></span>
-      <span class="asl-assignment__type">${meta.label}</span>
-      <span class="asl-status ${attemptsComplete ? 'asl-status--taken' : ''}">${usedAttempts}/${maxAttempts} attempts used</span>
+    return `<article class="FSL-assignment FSL-classroom-activity ${attemptsComplete ? 'FSL-classroom-activity--completed' : ''}" data-kind="${activity.kind}" data-id="${activity.id}">
+      <span class="FSL-classroom-activity__icon"><i data-lucide="${meta.icon}"></i></span>
+      <span class="FSL-assignment__type">${meta.label}</span>
+      <span class="FSL-status ${attemptsComplete ? 'FSL-status--taken' : ''}">${usedAttempts}/${maxAttempts} attempts used</span>
       <h3>${escape(activity.title)}</h3>
       <p>${escape(info)}</p>
       <br/>
-      <button class="asl-btn asl-btn--secondary activity-open" data-id="${activity.id}" ${attemptsComplete ? 'disabled aria-disabled="true"' : ''}>${attemptsComplete ? 'Attempts complete' : `Start attempt ${nextAttempt}`} <i data-lucide="arrow-right"></i></button>
+      <button class="FSL-btn FSL-btn--secondary activity-open" data-id="${activity.id}" ${attemptsComplete ? 'disabled aria-disabled="true"' : ''}>${attemptsComplete ? 'Attempts complete' : `Start attempt ${nextAttempt}`} <i data-lucide="arrow-right"></i></button>
     </article>`;
   };
   container.innerHTML = `
-    <div class="asl-quizzes-hub asl-container">
-      <div class="asl-classroom-header">
-        <div><span class="asl-eyebrow">My classroom</span><h1>Available quizzes</h1><p>Select a Letter, Spelling, or Word Sign Quiz published by your teacher.</p></div>
-        <div class="asl-classroom-header__count"><strong>${activities.length}</strong><span>Available quizzes</span></div>
+    <div class="FSL-quizzes-hub FSL-container">
+      <div class="FSL-classroom-header">
+        <div><span class="FSL-eyebrow">My classroom</span><h1>Available quizzes</h1><p>Select a Letter, Spelling, or Word Sign Quiz published by your teacher.</p></div>
+        <div class="FSL-classroom-header__count"><strong>${activities.length}</strong><span>Available quizzes</span></div>
       </div>
-      <section class="asl-section">
-        <div id="teacher-activities" class="asl-dashboard-grid">${activities.map(card).join('') || '<div class="asl-empty-card"><h3>Join your teacher’s classroom</h3><p>Enter the room code shared by your teacher to see their Letter, Spelling, and Word Sign quizzes.</p><form id="join-classroom-form" class="asl-form"><label>Teacher room code<input name="roomCode" required maxlength="32" autocomplete="off" style="text-transform:uppercase" placeholder="e.g. A1B2C3D4"></label><div id="join-classroom-message" class="asl-form__message" aria-live="polite"></div><button class="asl-btn asl-btn--primary" type="submit">Join classroom</button></form></div>'}</div>
+      <section class="FSL-section">
+        <div id="teacher-activities" class="FSL-dashboard-grid">${activities.map(card).join('') || '<div class="FSL-empty-card"><h3>Join your teacher’s classroom</h3><p>Enter the room code shared by your teacher to see their Letter, Spelling, and Word Sign quizzes.</p><form id="join-classroom-form" class="FSL-form"><label>Teacher room code<input name="roomCode" required maxlength="32" autocomplete="off" style="text-transform:uppercase" placeholder="e.g. A1B2C3D4"></label><div id="join-classroom-message" class="FSL-form__message" aria-live="polite"></div><button class="FSL-btn FSL-btn--primary" type="submit">Join classroom</button></form></div>'}</div>
       </section>
     </div>`;
   createIcons({ icons });
@@ -76,11 +76,11 @@ function render(container, quizzes, attempts) {
       button.disabled = true;
       try {
         await joinClassroomByCode(new FormData(joinForm).get('roomCode'));
-        message.className = 'asl-form__message asl-form__message--success';
+        message.className = 'FSL-form__message FSL-form__message--success';
         message.textContent = 'Classroom joined. Loading available quizzes…';
         setTimeout(() => mount(container), 450);
       } catch (error) {
-        message.className = 'asl-form__message asl-form__message--error';
+        message.className = 'FSL-form__message FSL-form__message--error';
         message.textContent = error.message || 'Could not join this classroom.';
         button.disabled = false;
       }

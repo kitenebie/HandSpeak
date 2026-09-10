@@ -1,5 +1,5 @@
 {
-  "name": "asl-learning",
+  "name": "FSL-learning",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -12,6 +12,7 @@
     "@mediapipe/tasks-vision": "^0.10.18",
     "@supabase/supabase-js": "^2.112.4",
     "@tensorflow/tfjs": "^4.22.0",
+    "apexcharts": "^7.1.0",
     "lucide": "^1.39.0"
   },
   "devDependencies": {

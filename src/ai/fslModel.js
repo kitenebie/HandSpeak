@@ -8,11 +8,11 @@ let modelInfo = { inputShape: 63, outputClasses: 30, loaded: false };
 export async function loadModel() {
     if (isModelLoaded) return;
     try {
-        model = await tf.loadGraphModel('/models/asl/model.json');
+        model = await tf.loadGraphModel('/models/FSL/model.json');
         isModelLoaded = true;
         modelInfo.loaded = true;
     } catch (error) {
-        console.error("Failed to load ASL model:", error);
+        console.error("Failed to load FSL model:", error);
         throw error;
     }
 }

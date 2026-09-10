@@ -1,13 +1,13 @@
-# ASL Learning App — Architecture & Interface Specification
+# FSL Learning App — Architecture & Interface Specification
 
 ## Project Root
-`c:\Users\kenne\Desktop\em-res\ASL-OD\handspeak`
+`c:\Users\kenne\Desktop\em-res\FSL-OD\handspeak`
 
 ## Tech Stack
 - Vanilla JS with ES modules, bundled by Vite
 - npm for package management
 - Source code in `src/`
-- Static assets in `public/` (models served at `/models/asl/`)
+- Static assets in `public/` (models served at `/models/FSL/`)
 - TensorFlow.js (`@tensorflow/tfjs`) for model inference
 - MediaPipe Tasks Vision (`@mediapipe/tasks-vision`) for hand landmarks
 
@@ -17,13 +17,13 @@ handspeak/
 ├── index.html
 ├── package.json
 ├── vite.config.js
-├── public/models/asl/{model.json, group1-shard1of1.bin, labels.json}
+├── public/models/FSL/{model.json, group1-shard1of1.bin, labels.json}
 ├── src/
 │   ├── main.js
 │   ├── router.js
 │   ├── style.css
 │   ├── ai/
-│   │   ├── aslModel.js
+│   │   ├── FSLModel.js
 │   │   ├── handLandmarker.js
 │   │   ├── predictionEngine.js
 │   │   └── cameraManager.js
@@ -83,12 +83,12 @@ All CSS variables are on `:root` in `src/style.css`. Every component uses these 
 ```
 
 ### CSS Class Naming
-BEM-style with `asl-` prefix:
-- Block: `.asl-camera`, `.asl-navbar`, `.asl-quiz`
-- Element: `.asl-camera__video`, `.asl-camera__canvas`
-- Modifier: `.asl-btn--primary`, `.asl-letter-card--practiced`
-- States: `.asl-correct`, `.asl-incorrect`, `.asl-loading`
-- Utility: `.asl-container`, `.asl-grid`, `.asl-text-center`
+BEM-style with `FSL-` prefix:
+- Block: `.FSL-camera`, `.FSL-navbar`, `.FSL-quiz`
+- Element: `.FSL-camera__video`, `.FSL-camera__canvas`
+- Modifier: `.FSL-btn--primary`, `.FSL-letter-card--practiced`
+- States: `.FSL-correct`, `.FSL-incorrect`, `.FSL-loading`
+- Utility: `.FSL-container`, `.FSL-grid`, `.FSL-text-center`
 
 ---
 
@@ -145,7 +145,7 @@ Each page module exports:
 
 ## AI Layer Interfaces
 
-### `src/ai/aslModel.js`
+### `src/ai/FSLModel.js`
 
 ```js
 // Load TF.js graph model (call once at app start)
@@ -162,13 +162,13 @@ export function getModelInfo(); // { inputShape: 63, outputClasses: 30, loaded: 
 ```
 
 **Critical implementation details:**
-- Use `tf.loadGraphModel('/models/asl/model.json')`
+- Use `tf.loadGraphModel('/models/FSL/model.json')`
 - Feature extraction MUST match training: `[lm0.x, lm0.y, lm0.z, lm1.x, lm1.y, lm1.z, ..., lm20.x, lm20.y, lm20.z]`
 - Use `tf.tidy()` to prevent memory leaks
 - Input tensor shape: `[1, 63]`
 - Output: softmax probabilities, shape `[1, 30]`
 - Valid letters: indices 0–25 (A–Z)
-- Special classes: 26=asl_alphabet_test, 27=del, 28=nothing, 29=space
+- Special classes: 26=FSL_alphabet_test, 27=del, 28=nothing, 29=space
 - `topPredictions` returns top 5 sorted by confidence
 
 ### `src/ai/handLandmarker.js`
@@ -255,15 +255,15 @@ export class CameraManager {
 
 ```js
 // All 30 labels in model output order
-export const LABELS = ['A','B','C',...'Z','asl_alphabet_test','del','nothing','space'];
+export const LABELS = ['A','B','C',...'Z','FSL_alphabet_test','del','nothing','space'];
 
 // Just the 26 valid letters
 export const VALID_LETTERS = ['A','B','C',...'Z'];
 
 // Special class indices
-export const SPECIAL_CLASSES = { ASL_TEST: 26, DEL: 27, NOTHING: 28, SPACE: 29 };
+export const SPECIAL_CLASSES = { FSL_TEST: 26, DEL: 27, NOTHING: 28, SPACE: 29 };
 
-// Letter info with ASL sign description
+// Letter info with FSL sign description
 // Returns: { letter, index, description: string (how to form the sign) }
 export function getLetterInfo(letter);
 
@@ -291,7 +291,7 @@ export function getWordsByLength(minLen, maxLen);
 ### `src/utils/storage.js`
 
 ```js
-// All data stored under localStorage key "aslProgress"
+// All data stored under localStorage key "FSLProgress"
 export function getProgress(); // returns full progress object
 export function saveLetterPracticed(letter);
 export function saveWordPracticed(word);
@@ -382,12 +382,12 @@ export function createCamera(container) {
 
 Renders:
 ```html
-<div class="asl-camera">
-  <div class="asl-camera__viewport">
-    <video class="asl-camera__video" autoplay playsinline></video>
-    <canvas class="asl-camera__canvas"></canvas>
+<div class="FSL-camera">
+  <div class="FSL-camera__viewport">
+    <video class="FSL-camera__video" autoplay playsinline></video>
+    <canvas class="FSL-camera__canvas"></canvas>
   </div>
-  <div class="asl-camera__status">Camera Status: ● Active</div>
+  <div class="FSL-camera__status">Camera Status: ● Active</div>
 </div>
 ```
 
@@ -447,15 +447,15 @@ export function createNavbar(container) {
 
 Renders:
 ```html
-<nav class="asl-navbar">
-  <a class="asl-navbar__brand" href="#/">ASL Learning</a>
-  <div class="asl-navbar__links">
+<nav class="FSL-navbar">
+  <a class="FSL-navbar__brand" href="#/">FSL Learning</a>
+  <div class="FSL-navbar__links">
     <a href="#/">Home</a>
     <a href="#/learn">Learning</a>
     <a href="#/practice/letter">Practice</a>
     <a href="#/quiz/letter">Quizzes</a>
   </div>
-  <button class="asl-navbar__menu-btn">☰</button> <!-- mobile toggle -->
+  <button class="FSL-navbar__menu-btn">☰</button> <!-- mobile toggle -->
 </nav>
 ```
 
@@ -505,7 +505,7 @@ Every page exports `mount(container, params)` and `unmount()`.
 ### `src/pages/alphabet.js`
 - A–Z grid using `createAlphabetGrid`
 - When `params.letter` is set, show letter detail view:
-  - Letter, ASL sign description, "Practice this" button
+  - Letter, FSL sign description, "Practice this" button
   - Back to grid button
 
 ### `src/pages/practiceLetter.js`

@@ -107,7 +107,7 @@ export async function loadWordSignModel() {
  * pose: array of 33 landmarks with x/y/z/visibility
  */
 export function buildWordFrameFeatures({ leftHand = null, rightHand = null, pose = null }) {
-    const hasLeft = isLandmarkSet(leftHand, 21);
+    const hFSLeft = isLandmarkSet(leftHand, 21);
     const hasRight = isLandmarkSet(rightHand, 21);
     const hasPose = isLandmarkSet(pose, 33);
 
@@ -146,7 +146,7 @@ export function buildWordFrameFeatures({ leftHand = null, rightHand = null, pose
         }
     };
 
-    appendHand(hasLeft ? leftHand : null);
+    appendHand(hFSLeft ? leftHand : null);
     appendHand(hasRight ? rightHand : null);
 
     if (hasPose) {
@@ -163,7 +163,7 @@ export function buildWordFrameFeatures({ leftHand = null, rightHand = null, pose
         features.push(...new Array(33 * 4).fill(0));
     }
 
-    features.push(Number(hasLeft), Number(hasRight), Number(hasPose));
+    features.push(Number(hFSLeft), Number(hasRight), Number(hasPose));
     return features;
 }
 

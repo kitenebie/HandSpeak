@@ -1,4 +1,4 @@
-import { loadModel, isLoaded, getModelInfo } from './ai/aslModel.js';
+import { loadModel, isLoaded, getModelInfo } from './ai/FSLModel.js';
 import { initHandLandmarker, isReady } from './ai/handLandmarker.js';
 import { createNavbar } from './components/navbar.js';
 import { createDebugPanel } from './components/debugPanel.js';
@@ -21,6 +21,12 @@ import { getProfile, onAuthChange, submitUnfinishedQuizAttempts } from './lib/cl
 
 let debugPanel = null;
 let navbar = null;
+
+function dashboardPathForProfile(profile) {
+  if (profile?.role === 'admin') return '#/admin';
+  if (profile?.role === 'teacher') return '#/teacher';
+  return '#/student';
+}
 
 // Export for pages to update debug panel
 export function updateDebugPanel(data) {
@@ -54,11 +60,11 @@ async function init() {
   const loadError = document.getElementById('load-error');
   
   function markDone(el) {
-    el.classList.remove('asl-loading__step--loading');
-    el.classList.add('asl-loading__step--done');
+    el.classList.remove('FSL-loading__step--loading');
+    el.classList.add('FSL-loading__step--done');
   }
   function markError(el) {
-    el.classList.add('asl-loading__step--error');
+    el.classList.add('FSL-loading__step--error');
   }
   
   try {
@@ -121,12 +127,25 @@ async function init() {
         initRouter(routes, pageContent, (path) => {
           if (navbar) navbar.setActive(path);
         }, async (path) => {
+          const guestOnlyPaths = ['/auth/login', '/auth/register', '/auth/forgot-password'];
+          if (guestOnlyPaths.includes(path)) {
+            try {
+              const profile = await getProfile();
+              if (profile) {
+                window.location.hash = dashboardPathForProfile(profile);
+                return false;
+              }
+            } catch (error) {
+              console.warn('Guest route check failed:', error.message);
+            }
+            return true;
+          }
           const protectedPaths = ['/learn', '/practice', '/quiz', '/quizzes'];
           if (!protectedPaths.some(prefix => path === prefix || path.startsWith(prefix + '/'))) return true;
           try {
             const profile = await getProfile();
             if (profile?.role === 'admin') {
-              window.location.hash = '#/admin';
+              window.location.hash = dashboardPathForProfile(profile);
               return false;
             }
             if (profile) return true;
@@ -151,7 +170,7 @@ async function init() {
   } catch (error) {
     console.error('Failed to initialize:', error);
     if (loadError) {
-        loadError.textContent = `Failed to load: ${error.message}. Check that model files exist at /models/asl/model.json`;
+        loadError.textContent = `Failed to load: ${error.message}. Check that model files exist at /models/FSL/model.json`;
         loadError.style.display = 'block';
     }
     if (loadTf && !isLoaded()) markError(loadTf);

@@ -5,32 +5,32 @@ const HAND_CONNECTIONS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],
 
 export function createCamera(container) {
   const el = document.createElement('div');
-  el.className = 'asl-camera';
+  el.className = 'FSL-camera';
   el.innerHTML = `
-    <div class="asl-camera__viewport">
-      <video class="asl-camera__video" autoplay playsinline muted></video>
-      <canvas class="asl-camera__canvas"></canvas>
-      <div class="asl-camera__fullscreen-prompt" hidden></div>
-      <div class="asl-camera__fullscreen-feedback" hidden aria-live="polite"></div>
-      <div class="asl-camera__countdown" hidden aria-live="assertive"></div>
-      <button class="asl-camera__fullscreen-btn" type="button" aria-label="Expand camera" aria-pressed="false" title="Expand camera">
+    <div class="FSL-camera__viewport">
+      <video class="FSL-camera__video" autoplay playsinline muted></video>
+      <canvas class="FSL-camera__canvas"></canvas>
+      <div class="FSL-camera__fullscreen-prompt" hidden></div>
+      <div class="FSL-camera__fullscreen-feedback" hidden aria-live="polite"></div>
+      <div class="FSL-camera__countdown" hidden aria-live="assertive"></div>
+      <button class="FSL-camera__fullscreen-btn" type="button" aria-label="Expand camera" aria-pressed="false" title="Expand camera">
         <i data-lucide="maximize-2"></i>
       </button>
-      <div class="asl-camera__error" style="display:none"></div>
+      <div class="FSL-camera__error" style="display:none"></div>
     </div>
-    <div class="asl-camera__status">Camera: Inactive</div>
+    <div class="FSL-camera__status">Camera: Inactive</div>
   `;
   container.appendChild(el);
 
-  const viewport = el.querySelector('.asl-camera__viewport');
-  const video = el.querySelector('.asl-camera__video');
-  const canvas = el.querySelector('.asl-camera__canvas');
-  const fullscreenPrompt = el.querySelector('.asl-camera__fullscreen-prompt');
-  const fullscreenFeedback = el.querySelector('.asl-camera__fullscreen-feedback');
-  const countdownDiv = el.querySelector('.asl-camera__countdown');
-  const fullscreenBtn = el.querySelector('.asl-camera__fullscreen-btn');
-  const errorDiv = el.querySelector('.asl-camera__error');
-  const statusDiv = el.querySelector('.asl-camera__status');
+  const viewport = el.querySelector('.FSL-camera__viewport');
+  const video = el.querySelector('.FSL-camera__video');
+  const canvas = el.querySelector('.FSL-camera__canvas');
+  const fullscreenPrompt = el.querySelector('.FSL-camera__fullscreen-prompt');
+  const fullscreenFeedback = el.querySelector('.FSL-camera__fullscreen-feedback');
+  const countdownDiv = el.querySelector('.FSL-camera__countdown');
+  const fullscreenBtn = el.querySelector('.FSL-camera__fullscreen-btn');
+  const errorDiv = el.querySelector('.FSL-camera__error');
+  const statusDiv = el.querySelector('.FSL-camera__status');
   const ctx = canvas.getContext('2d');
   
   let manager = null;
@@ -51,7 +51,7 @@ export function createCamera(container) {
       return;
     }
     fallbackExpanded = false;
-    viewport.classList.remove('asl-camera__viewport--expanded');
+    viewport.classList.remove('FSL-camera__viewport--expanded');
     renderFullscreenButton();
   };
   const enterExpanded = async () => {
@@ -60,7 +60,7 @@ export function createCamera(container) {
       return;
     }
     fallbackExpanded = true;
-    viewport.classList.add('asl-camera__viewport--expanded');
+    viewport.classList.add('FSL-camera__viewport--expanded');
     renderFullscreenButton();
   };
   const toggleExpanded = async () => {
@@ -72,14 +72,14 @@ export function createCamera(container) {
       }
     } catch {
       fallbackExpanded = !fallbackExpanded;
-      viewport.classList.toggle('asl-camera__viewport--expanded', fallbackExpanded);
+      viewport.classList.toggle('FSL-camera__viewport--expanded', fallbackExpanded);
       renderFullscreenButton();
     }
   };
   const handleFullscreenChange = () => {
     if (document.fullscreenElement !== viewport) {
       fallbackExpanded = false;
-      viewport.classList.remove('asl-camera__viewport--expanded');
+      viewport.classList.remove('FSL-camera__viewport--expanded');
     }
     renderFullscreenButton();
   };
@@ -201,7 +201,7 @@ export function createCamera(container) {
       errorDiv.style.display = 'flex';
       errorDiv.innerHTML = `
         <div>${message}</div>
-        <button class="asl-btn asl-btn--primary" id="camera-retry-btn" style="margin-top: 1rem;">Try Again</button>
+        <button class="FSL-btn FSL-btn--primary" id="camera-retry-btn" style="margin-top: 1rem;">Try Again</button>
       `;
       const retryBtn = errorDiv.querySelector('#camera-retry-btn');
       if (retryBtn) {
@@ -219,12 +219,12 @@ export function createCamera(container) {
     },
     showFullscreenFeedback(message, type = '') {
       fullscreenFeedback.hidden = !message;
-      fullscreenFeedback.className = `asl-camera__fullscreen-feedback${type ? ` asl-camera__fullscreen-feedback--${type}` : ''}`;
+      fullscreenFeedback.className = `FSL-camera__fullscreen-feedback${type ? ` FSL-camera__fullscreen-feedback--${type}` : ''}`;
       fullscreenFeedback.textContent = message || '';
     },
     clearFullscreenFeedback() {
       fullscreenFeedback.hidden = true;
-      fullscreenFeedback.className = 'asl-camera__fullscreen-feedback';
+      fullscreenFeedback.className = 'FSL-camera__fullscreen-feedback';
       fullscreenFeedback.textContent = '';
     },
     showCountdown(value) {
@@ -248,7 +248,7 @@ export function createCamera(container) {
       if (document.fullscreenElement === viewport && document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
       }
-      viewport.classList.remove('asl-camera__viewport--expanded');
+      viewport.classList.remove('FSL-camera__viewport--expanded');
       el.remove();
     }
   };

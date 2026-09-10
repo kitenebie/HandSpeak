@@ -6,7 +6,7 @@ import { WORDS } from '../data/words.js';
 import { saveWordPracticed } from '../utils/storage.js';
 import { navigate } from '../router.js';
 import { updateDebugPanel } from '../main.js';
-import { isLoaded, getModelInfo } from '../ai/aslModel.js';
+import { isLoaded, getModelInfo } from '../ai/FSLModel.js';
 import { isReady } from '../ai/handLandmarker.js';
 
 let animFrameId = null;
@@ -24,17 +24,17 @@ let feedbackTimer = null;
 export async function mount(container, params) {
   if (!params.word) {
     // Show word picker
-    let wordsHtml = WORDS.map(w => `<button class="asl-word-picker__word" data-word="${w}">${w}</button>`).join('');
+    let wordsHtml = WORDS.map(w => `<button class="FSL-word-picker__word" data-word="${w}">${w}</button>`).join('');
     container.innerHTML = `
-      <div class="asl-word-picker asl-container">
-        <h1 class="asl-text-center">Word Practice</h1>
-        <p class="asl-text-center" style="color: var(--color-text-light);">Choose a word to practice fingerspelling letter by letter</p>
-        <div class="asl-word-picker__grid" style="margin-top: 2rem;">
+      <div class="FSL-word-picker FSL-container">
+        <h1 class="FSL-text-center">Word Practice</h1>
+        <p class="FSL-text-center" style="color: var(--color-text-light);">Choose a word to practice fingerspelling letter by letter</p>
+        <div class="FSL-word-picker__grid" style="margin-top: 2rem;">
           ${wordsHtml}
         </div>
       </div>
     `;
-    container.querySelectorAll('.asl-word-picker__word').forEach(btn => {
+    container.querySelectorAll('.FSL-word-picker__word').forEach(btn => {
       btn.addEventListener('click', (e) => {
         navigate('#/practice/word/' + e.target.dataset.word);
       });
@@ -47,19 +47,19 @@ export async function mount(container, params) {
   currentLetterIndex = 0;
 
   container.innerHTML = `
-    <div class="asl-practice asl-container">
-      <div class="asl-practice__layout">
-        <div class="asl-practice__info asl-card">
-          <div class="asl-text-center">
+    <div class="FSL-practice FSL-container">
+      <div class="FSL-practice__layout">
+        <div class="FSL-practice__info FSL-card">
+          <div class="FSL-text-center">
             <span style="color: var(--color-text-light); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px;">Practice Word</span>
             <h2 style="font-size: 2.2rem; color: var(--color-primary); letter-spacing: 2px; margin: 0.5rem 0;">${currentWord}</h2>
           </div>
           
-          <div class="asl-word-progress" id="word-progress-container"></div>
+          <div class="FSL-word-progress" id="word-progress-container"></div>
           
         </div>
 
-        <div class="asl-practice__camera">
+        <div class="FSL-practice__camera">
           <div id="camera-container" style="width: 100%;"></div>
           <div id="prediction-container" style="width: 100%;"></div>
         </div>
@@ -89,11 +89,11 @@ function renderProgress(container) {
   for (let i = 0; i < letters.length; i++) {
     const l = letters[i];
     if (i < currentLetterIndex) {
-      html += `<div class="asl-word-progress__letter asl-word-progress__letter--completed">✓ ${l}</div>`;
+      html += `<div class="FSL-word-progress__letter FSL-word-progress__letter--completed">✓ ${l}</div>`;
     } else if (i === currentLetterIndex) {
-      html += `<div class="asl-word-progress__letter asl-word-progress__letter--current">${l}</div>`;
+      html += `<div class="FSL-word-progress__letter FSL-word-progress__letter--current">${l}</div>`;
     } else {
-      html += `<div class="asl-word-progress__letter asl-word-progress__letter--pending">○ ${l}</div>`;
+      html += `<div class="FSL-word-progress__letter FSL-word-progress__letter--pending">○ ${l}</div>`;
     }
   }
   progressContainer.innerHTML = html;

@@ -105,7 +105,7 @@ function handleQuizExit() {
 export async function mount(container) {
   pageContainer = container;
   assignedQuiz = getAssignedQuiz();
-  container.innerHTML = '<div class="asl-container"><div class="asl-card">Loading word-sign model and pose tracking…</div></div>';
+  container.innerHTML = '<div class="FSL-container"><div class="FSL-card">Loading word-sign model and pose tracking…</div></div>';
 
   try {
     const [supportedWords] = await Promise.all([
@@ -161,32 +161,32 @@ export async function mount(container) {
     renderQuiz(container);
     window.addEventListener('pagehide', handleQuizExit);
   } catch (error) {
-    container.innerHTML = `<div class="asl-container"><div class="asl-card"><h2>Word quiz unavailable</h2><p>${escape(error.message)}</p><button id="word-quiz-back" class="asl-btn asl-btn--secondary">Back to quizzes</button></div></div>`;
+    container.innerHTML = `<div class="FSL-container"><div class="FSL-card"><h2>Word quiz unavailable</h2><p>${escape(error.message)}</p><button id="word-quiz-back" class="FSL-btn FSL-btn--secondary">Back to quizzes</button></div></div>`;
     container.querySelector('#word-quiz-back')?.addEventListener('click', () => navigate('#/quiz'));
   }
 }
 
 async function renderQuiz(container) {
   container.innerHTML = `
-    <div class="asl-quiz asl-container">
-      <div class="asl-quiz__layout">
-        <section class="asl-quiz__info asl-card">
-          <div class="asl-quiz__header"><div class="asl-quiz__question-counter" id="word-sign-counter"></div></div>
-          <div class="asl-text-center" style="margin: 1.5rem 0;">
-            <span class="asl-eyebrow">Sign:</span>
-            <div class="asl-target-letter" id="word-sign-target" style="font-size: clamp(2rem, 7vw, 4rem); width: auto; padding: 0 1rem;"></div>
-            <div class="asl-word-sequence" id="word-sign-sequence" aria-label="Word signing progress"></div>
+    <div class="FSL-quiz FSL-container">
+      <div class="FSL-quiz__layout">
+        <section class="FSL-quiz__info FSL-card">
+          <div class="FSL-quiz__header"><div class="FSL-quiz__question-counter" id="word-sign-counter"></div></div>
+          <div class="FSL-text-center" style="margin: 1.5rem 0;">
+            <span class="FSL-eyebrow">Sign:</span>
+            <div class="FSL-target-letter" id="word-sign-target" style="font-size: clamp(2rem, 7vw, 4rem); width: auto; padding: 0 1rem;"></div>
+            <div class="FSL-word-sequence" id="word-sign-sequence" aria-label="Word signing progress"></div>
           </div>
-          <p class="asl-muted asl-text-center">Keep your upper body and both hands inside the frame. Press the button, then perform the sign naturally.</p>
-          <button id="word-sign-capture" class="asl-btn asl-btn--primary asl-btn--lg" type="button" disabled>Preparing camera…</button>
-          <div id="word-sign-status" class="asl-form__message" aria-live="polite">Loading hand and posture tracking…</div>
-          <div class="asl-quiz__actions">
-            <button id="word-sign-prev" class="asl-btn asl-btn--secondary" type="button">Previous</button>
-            <button id="word-sign-skip" class="asl-btn asl-btn--secondary" type="button">Skip</button>
-            <button id="word-sign-submit" class="asl-btn asl-btn--primary" type="button" hidden style="display:none" aria-hidden="true">Submit quiz</button>
+          <p class="FSL-muted FSL-text-center">Keep your upper body and both hands inside the frame. Press the button, then perform the sign naturally.</p>
+          <button id="word-sign-capture" class="FSL-btn FSL-btn--primary FSL-btn--lg" type="button" disabled>Preparing camera…</button>
+          <div id="word-sign-status" class="FSL-form__message" aria-live="polite">Loading hand and posture tracking…</div>
+          <div class="FSL-quiz__actions">
+            <button id="word-sign-prev" class="FSL-btn FSL-btn--secondary" type="button">Previous</button>
+            <button id="word-sign-skip" class="FSL-btn FSL-btn--secondary" type="button">Skip</button>
+            <button id="word-sign-submit" class="FSL-btn FSL-btn--primary" type="button" hidden style="display:none" aria-hidden="true">Submit quiz</button>
           </div>
         </section>
-        <div class="asl-practice__camera"><div id="word-sign-camera" style="width:100%"></div></div>
+        <div class="FSL-practice__camera"><div id="word-sign-camera" style="width:100%"></div></div>
       </div>
     </div>`;
 
@@ -219,8 +219,8 @@ function updateQuestionDisplay() {
   camera?.setFullscreenPrompt(`Question ${current.questionNumber}: Sign ${current.word}`);
   if (sequence) {
     sequence.innerHTML = current.progress.map((item, index) => `
-      ${index ? '<span class="asl-word-sequence__arrow" aria-hidden="true">→</span>' : ''}
-      <span class="asl-word-sequence__item${item.completed ? ' asl-word-sequence__item--complete' : ''}${index === current.currentWordIndex ? ' asl-word-sequence__item--current' : ''}">
+      ${index ? '<span class="FSL-word-sequence__arrow" aria-hidden="true">→</span>' : ''}
+      <span class="FSL-word-sequence__item${item.completed ? ' FSL-word-sequence__item--complete' : ''}${index === current.currentWordIndex ? ' FSL-word-sequence__item--current' : ''}">
         ${item.completed ? '<span aria-hidden="true">✓</span> ' : ''}${escape(item.word)}
       </span>`).join('');
   }
@@ -281,7 +281,7 @@ function bindQuizControls() {
 function setStatus(message, type = '') {
   const element = pageContainer?.querySelector('#word-sign-status');
   if (!element) return;
-  element.className = `asl-form__message${type ? ` asl-form__message--${type}` : ''}`;
+  element.className = `FSL-form__message${type ? ` FSL-form__message--${type}` : ''}`;
   element.textContent = message;
 }
 

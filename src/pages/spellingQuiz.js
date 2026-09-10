@@ -7,7 +7,7 @@ import { getRandomWords } from '../data/words.js';
 import { saveQuizResult } from '../utils/storage.js';
 import { navigate } from '../router.js';
 import { updateDebugPanel } from '../main.js';
-import { isLoaded, getModelInfo } from '../ai/aslModel.js';
+import { isLoaded, getModelInfo } from '../ai/FSLModel.js';
 import { isReady } from '../ai/handLandmarker.js';
 import { saveAttempt, startQuizAttempt, submitQuizAttempt, updateQuizAttempt } from '../lib/classroom.js';
 
@@ -118,26 +118,26 @@ async function startQuiz(container, count, difficulty, assignedWords = null, ass
   window.addEventListener('pagehide', handleQuizExit);
 
   container.innerHTML = `
-    <div class="asl-quiz asl-container">
-      <div class="asl-quiz__layout">
-        <div class="asl-quiz__info asl-card">
-          <div class="asl-quiz__header" style="margin-bottom: 0;"><div class="asl-quiz__question-counter" id="word-counter"></div></div>
+    <div class="FSL-quiz FSL-container">
+      <div class="FSL-quiz__layout">
+        <div class="FSL-quiz__info FSL-card">
+          <div class="FSL-quiz__header" style="margin-bottom: 0;"><div class="FSL-quiz__question-counter" id="word-counter"></div></div>
 
-          <div class="asl-text-center" style="margin: 1rem 0 0.5rem;">
+          <div class="FSL-text-center" style="margin: 1rem 0 0.5rem;">
             <span style="color: var(--color-text-light); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px;">Spell this word</span>
             <div id="word-display" style="text-align: center; font-size: 2.5rem; font-weight: 700; color: var(--color-primary); letter-spacing: 3px; margin: 0.5rem 0;"></div>
           </div>
 
-          <div class="asl-word-progress" id="letter-progress" style="margin: 0 auto;"></div>
-          <div class="asl-quiz__actions">
-            <button id="spelling-prev" class="asl-btn asl-btn--secondary" type="button">Previous</button>
-            <button id="spelling-skip" class="asl-btn asl-btn--secondary" type="button">Skip</button>
-            <button id="spelling-submit" class="asl-btn asl-btn--primary" type="button" hidden style="display:none" aria-hidden="true">Submit quiz</button>
+          <div class="FSL-word-progress" id="letter-progress" style="margin: 0 auto;"></div>
+          <div class="FSL-quiz__actions">
+            <button id="spelling-prev" class="FSL-btn FSL-btn--secondary" type="button">Previous</button>
+            <button id="spelling-skip" class="FSL-btn FSL-btn--secondary" type="button">Skip</button>
+            <button id="spelling-submit" class="FSL-btn FSL-btn--primary" type="button" hidden style="display:none" aria-hidden="true">Submit quiz</button>
           </div>
 
         </div>
 
-        <div class="asl-practice__camera">
+        <div class="FSL-practice__camera">
           <div id="camera-container" style="width: 100%;"></div>
           <div id="prediction-container" style="width: 100%;"></div>
         </div>
@@ -173,12 +173,12 @@ function updateDisplay(container) {
   if (progressEl && current) {
     progressEl.innerHTML = current.progress.map((p, idx) => {
       if (p.completed) {
-        return `<div class="asl-word-progress__letter asl-word-progress__letter--completed">✓ ${p.letter}</div>`;
+        return `<div class="FSL-word-progress__letter FSL-word-progress__letter--completed">✓ ${p.letter}</div>`;
       }
       if (idx === current.letterIndex) {
-        return `<div class="asl-word-progress__letter asl-word-progress__letter--current">${p.letter}</div>`;
+        return `<div class="FSL-word-progress__letter FSL-word-progress__letter--current">${p.letter}</div>`;
       }
-      return `<div class="asl-word-progress__letter asl-word-progress__letter--pending">○ ${p.letter}</div>`;
+      return `<div class="FSL-word-progress__letter FSL-word-progress__letter--pending">○ ${p.letter}</div>`;
     }).join('');
   }
   answered = Boolean(current?.completed);

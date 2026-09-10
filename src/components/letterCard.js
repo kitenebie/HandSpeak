@@ -1,13 +1,13 @@
 export function createLetterCard(letter, { practiced = false, onClick } = {}) {
   const btn = document.createElement('button');
-  btn.className = 'asl-letter-card';
+  btn.className = 'FSL-letter-card';
   if (practiced) {
-    btn.classList.add('asl-letter-card--practiced');
+    btn.classList.add('FSL-letter-card--practiced');
   }
   
   btn.innerHTML = `
-    <img class="asl-letter-card__image" src="/images/alpha/${letter}.jpg" alt="ASL sign for letter ${letter}">
-    ${practiced ? '<span class="asl-letter-card__check">✓</span>' : ''}
+    <img class="FSL-letter-card__image" src="/images/alpha/${letter}.jpg" alt="FSL sign for letter ${letter}">
+    ${practiced ? '<span class="FSL-letter-card__check">✓</span>' : ''}
   `;
   
   if (onClick) {
@@ -19,7 +19,7 @@ export function createLetterCard(letter, { practiced = false, onClick } = {}) {
 
 export function createAlphabetGrid(container, { onLetterClick, practicedLetters = new Set() }) {
   const grid = document.createElement('div');
-  grid.className = 'asl-alphabet-grid';
+  grid.className = 'FSL-alphabet-grid';
   
   const VALID_LETTERS = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
   

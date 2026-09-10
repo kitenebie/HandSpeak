@@ -1,7 +1,7 @@
 export const LABELS = [
     'A','B','C','D','E','F','G','H','I','J','K','L','M',
     'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-    'asl_alphabet_test','del','nothing','space'
+    'FSL_alphabet_test','del','nothing','space'
 ];
 
 export const VALID_LETTERS = [
@@ -10,7 +10,7 @@ export const VALID_LETTERS = [
 ];
 
 export const SPECIAL_CLASSES = { 
-    ASL_TEST: 26, 
+    FSL_TEST: 26, 
     DEL: 27, 
     NOTHING: 28, 
     SPACE: 29 

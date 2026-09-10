@@ -1,4 +1,4 @@
-import { predict } from './aslModel.js';
+import { predict } from './FSLModel.js';
 
 export class PredictionEngine {
     constructor(config = {}) {

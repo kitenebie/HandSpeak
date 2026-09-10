@@ -89,7 +89,7 @@ async function handleRoute() {
     }
   } catch(e) {
     console.error('Mount error:', e);
-    container.innerHTML = '<div class="asl-container asl-text-center asl-mt-3"><h2>Something went wrong</h2><p>Please try navigating to another page.</p></div>';
+    container.innerHTML = '<div class="FSL-container FSL-text-center FSL-mt-3"><h2>Something went wrong</h2><p>Please try navigating to another page.</p></div>';
   }
   
   // Notify route change

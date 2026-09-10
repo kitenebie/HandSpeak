@@ -30,7 +30,7 @@ const wordQuizTypeLabel = quiz => wordQuizType(quiz) === 'two_words' ? 'Two Word
 const getMaxAttempts = quiz => Math.max(1, Number(quiz?.max_attempts || 1));
 const ordinalAttempt = value => ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'][value - 1] || `Attempt ${value}`;
 const attemptDate = value => value ? new Date(value).toLocaleDateString() : 'In progress';
-const actionButton = (action, id, icon, label, variant = '') => `<button type="button" class="asl-icon-btn ${variant}" data-action="${action}" data-id="${escape(id)}" title="${label}" aria-label="${label}"><i data-lucide="${icon}"></i></button>`;
+const actionButton = (action, id, icon, label, variant = '') => `<button type="button" class="FSL-icon-btn ${variant}" data-action="${action}" data-id="${escape(id)}" title="${label}" aria-label="${label}"><i data-lucide="${icon}"></i></button>`;
 let pendingTeacherMessage = null;
 
 function attemptsWithNumbers(attempts) {
@@ -62,11 +62,11 @@ function getTeacherView() {
 
 function renderBars(items, emptyLabel = 'No data yet.') {
   const max = Math.max(1, ...items.map(item => item.value));
-  if (!items.some(item => item.value > 0)) return `<div class="asl-empty-card">${emptyLabel}</div>`;
-  return `<div class="asl-bar-chart">${items.map(item => `
-    <div class="asl-bar-chart__row">
+  if (!items.some(item => item.value > 0)) return `<div class="FSL-empty-card">${emptyLabel}</div>`;
+  return `<div class="FSL-bar-chart">${items.map(item => `
+    <div class="FSL-bar-chart__row">
       <span>${escape(item.label)}</span>
-      <div class="asl-bar-chart__track"><i style="width:${Math.max(6, Math.round((item.value / max) * 100))}%"></i></div>
+      <div class="FSL-bar-chart__track"><i style="width:${Math.max(6, Math.round((item.value / max) * 100))}%"></i></div>
       <strong>${item.value}</strong>
     </div>`).join('')}</div>`;
 }
@@ -83,30 +83,30 @@ function renderTeacherDashboardView({ profile, quizzes, students, attempts, clas
     value: attempts.filter(attempt => attempt.quiz_type === type).length
   }));
   return `
-    <div class="asl-dashboard__heading">
-      <div><span class="asl-eyebrow">Teacher dashboard</span><h1>${escape(profile.full_name || 'Teacher')}’s classroom</h1><p>Quick stats and activity graphs for your class.</p></div>
-      <div class="asl-room-code"><span>Student room code</span><strong>${escape(classroom?.join_code || 'Not available')}</strong><small>Use this for self-registration.</small></div>
+    <div class="FSL-dashboard__heading">
+      <div><span class="FSL-eyebrow">Teacher dashboard</span><h1>${escape(profile.full_name || 'Teacher')}’s classroom</h1><p>Quick stats and activity graphs for your class.</p></div>
+      <div class="FSL-room-code"><span>Student room code</span><strong>${escape(classroom?.join_code || 'Not available')}</strong><small>Use this for self-registration.</small></div>
     </div>
-    <div class="asl-metric-grid"><div class="asl-metric"><strong>${students.length}</strong><span>Registered students</span></div><div class="asl-metric"><strong>${attemptedStudents}</strong><span>Students assessed</span></div><div class="asl-metric"><strong>${average}%</strong><span>Class average</span></div><div class="asl-metric"><strong>${quizzes.filter(q => q.is_published).length}</strong><span>Published quizzes</span></div></div>
-    <div class="asl-report-grid">
-      <section class="asl-card"><h2>Quiz types</h2>${renderBars(quizTypes, 'No quizzes created yet.')}</section>
-      <section class="asl-card"><h2>Attempts by activity</h2>${renderBars(attemptTypes, 'No submitted attempts yet.')}</section>
+    <div class="FSL-metric-grid"><div class="FSL-metric"><strong>${students.length}</strong><span>Registered students</span></div><div class="FSL-metric"><strong>${attemptedStudents}</strong><span>Students assessed</span></div><div class="FSL-metric"><strong>${average}%</strong><span>Class average</span></div><div class="FSL-metric"><strong>${quizzes.filter(q => q.is_published).length}</strong><span>Published quizzes</span></div></div>
+    <div class="FSL-report-grid">
+      <section class="FSL-card"><h2>Quiz types</h2>${renderBars(quizTypes, 'No quizzes created yet.')}</section>
+      <section class="FSL-card"><h2>Attempts by activity</h2>${renderBars(attemptTypes, 'No submitted attempts yet.')}</section>
     </div>`;
 }
 
 function renderCreateQuizCard(supportedWordSigns) {
   return `
-    <section class="asl-card"><h2>Create a quiz</h2><p class="asl-muted">Each student receives a randomized question order from the range you set.</p>
-      <button type="button" class="asl-btn asl-btn--primary asl-form-toggle" data-form-id="quiz-create-form" data-label="Create new quiz" aria-controls="quiz-create-form" aria-expanded="false"><i data-lucide="plus"></i>Create Quiz</button>
-      <form id="quiz-create-form" class="asl-form" hidden>
+    <section class="FSL-card"><h2>Create a quiz</h2><p class="FSL-muted">Each student receives a randomized question order from the range you set.</p>
+      <button type="button" class="FSL-btn FSL-btn--primary FSL-form-toggle" data-form-id="quiz-create-form" data-label="Create new quiz" aria-controls="quiz-create-form" aria-expanded="false"><i data-lucide="plus"></i>Create Quiz</button>
+      <form id="quiz-create-form" class="FSL-form" hidden>
         <label>Quiz title<input name="title" required maxlength="100" placeholder="e.g. Alphabet review 1"></label>
         <label>Quiz type<select name="quizType" id="quiz-type"><option value="alphabet">Alphabet translation</option><option value="spelling">Word spelling</option><option value="word_sign">Word sign recognition</option></select></label>
-        <div id="alphabet-options"><div class="asl-form-row"><label>From<select name="rangeStart">${letters.map(l => `<option>${l}</option>`).join('')}</select></label><label>To<select name="rangeEnd">${letters.map(l => `<option ${l === 'Z' ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div></div>
+        <div id="alphabet-options"><div class="FSL-form-row"><label>From<select name="rangeStart">${letters.map(l => `<option>${l}</option>`).join('')}</select></label><label>To<select name="rangeEnd">${letters.map(l => `<option ${l === 'Z' ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div></div>
         <div id="spelling-options" hidden><label>Words (comma-separated)<input name="words" value="${WORDS.slice(0, 5).join(', ')}" placeholder="HELLO, SCHOOL, FRIEND"></label></div>
         <div id="word-sign-options" hidden>
           <label>Word quiz format<select name="wordQuizType" id="word-quiz-type"><option value="single_word">Single Word</option><option value="two_words">Two Words</option></select></label>
           <div id="single-word-options"><label>Recognizable words<select name="wordSigns" id="word-sign-select" multiple size="${Math.max(3, supportedWordSigns.length)}" required>${supportedWordSigns.map(word => `<option value="${escape(word)}" selected>${escape(word)}</option>`).join('')}</select><small>Only words included in the trained model are available. Use Ctrl/Cmd-click to change multiple selections.</small></label></div>
-          <div id="two-word-options" class="asl-form-row" hidden>
+          <div id="two-word-options" class="FSL-form-row" hidden>
             <label>Word 1<select name="wordSign1" id="word-sign-1" required>${supportedWordSigns.map((word, index) => `<option value="${escape(word)}" ${index === 0 ? 'selected' : ''}>${escape(word)}</option>`).join('')}</select></label>
             <label>Word 2<select name="wordSign2" id="word-sign-2" required>${supportedWordSigns.map((word, index) => `<option value="${escape(word)}" ${index === 1 ? 'selected' : ''}>${escape(word)}</option>`).join('')}</select></label>
           </div>
@@ -114,23 +114,23 @@ function renderCreateQuizCard(supportedWordSigns) {
         </div>
         <label id="question-count-field">Questions per student<input name="questionCount" type="number" min="1" max="26" value="10" required></label>
         <label>Allowed attempts per student<input name="maxAttempts" type="number" min="1" max="10" value="1" required><small>Set 2 if students can take the same quiz twice.</small></label>
-        <div class="asl-form-row"><label>Available from<input name="availableFrom" type="datetime-local"></label><label>Available until<input name="availableUntil" type="datetime-local"></label></div>
-        <label class="asl-checkbox"><input type="checkbox" name="published" checked> Publish immediately</label>
-        <div id="create-message" class="asl-form__message" aria-live="polite"></div><button class="asl-btn asl-btn--primary" type="submit">Create quiz</button>
+        <div class="FSL-form-row"><label>Available from<input name="availableFrom" type="datetime-local"></label><label>Available until<input name="availableUntil" type="datetime-local"></label></div>
+        <label class="FSL-checkbox"><input type="checkbox" name="published" checked> Publish immediately</label>
+        <div id="create-message" class="FSL-form__message" aria-live="polite"></div><button class="FSL-btn FSL-btn--primary" type="submit">Create quiz</button>
       </form>
     </section>`;
 }
 
 function renderQuizTable(quizzes) {
-  return `<div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Attempts</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}${q.quiz_type === 'word_sign' ? `<br><small>${wordQuizTypeLabel(q)}</small>` : ''}</td><td>${q.question_count}</td><td>${getMaxAttempts(q)}</td><td><span class="asl-status ${q.is_published ? 'asl-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td><td><div class="asl-table-actions">${actionButton('edit-quiz', q.id, 'pencil', 'Edit quiz')}${actionButton('delete-quiz', q.id, 'trash-2', 'Delete quiz', 'asl-icon-btn--danger')}</div></td></tr>`).join('') || '<tr><td colspan="7" class="asl-empty">Create your first quiz above.</td></tr>'}</tbody></table></div>`;
+  return `<div class="FSL-table-wrap"><table class="FSL-table"><thead><tr><th>Quiz</th><th>Type</th><th>Questions</th><th>Attempts</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>${quizzes.map(q => `<tr><td>${escape(q.title)}</td><td>${escape(quizTypeLabel(q.quiz_type))}${q.quiz_type === 'word_sign' ? `<br><small>${wordQuizTypeLabel(q)}</small>` : ''}</td><td>${q.question_count}</td><td>${getMaxAttempts(q)}</td><td><span class="FSL-status ${q.is_published ? 'FSL-status--active' : ''}">${q.is_published ? 'Published' : 'Draft'}</span></td><td>${new Date(q.created_at).toLocaleDateString()}</td><td><div class="FSL-table-actions">${actionButton('edit-quiz', q.id, 'pencil', 'Edit quiz')}${actionButton('delete-quiz', q.id, 'trash-2', 'Delete quiz', 'FSL-icon-btn--danger')}</div></td></tr>`).join('') || '<tr><td colspan="7" class="FSL-empty">Create your first quiz above.</td></tr>'}</tbody></table></div>`;
 }
 
 function renderStudentRows(students, attempts) {
   return students.map(student => {
     const own = attempts.filter(a => a.student_id === student.id);
     const avg = own.length ? Math.round(own.reduce((sum,a) => sum + Number(a.accuracy || 0),0) / own.length) : '-';
-    return `<tr><td>${escape(student.full_name || student.email)}</td><td>${escape(student.email || '-')}</td><td>${escape(genderLabel(student.gender))}</td><td>${new Date(student.joined_at || student.created_at).toLocaleDateString()}</td><td>${own.length}</td><td>${avg === '-' ? avg : `${avg}%`}</td><td><div class="asl-table-actions">${actionButton('edit-student', student.id, 'pencil', 'Edit student')}${actionButton('delete-student', student.id, 'trash-2', 'Remove student', 'asl-icon-btn--danger')}</div></td></tr>`;
-  }).join('') || '<tr><td colspan="7" class="asl-empty">No students have registered yet.</td></tr>';
+    return `<tr><td>${escape(student.full_name || student.email)}</td><td>${escape(student.email || '-')}</td><td>${escape(genderLabel(student.gender))}</td><td>${new Date(student.joined_at || student.created_at).toLocaleDateString()}</td><td>${own.length}</td><td>${avg === '-' ? avg : `${avg}%`}</td><td><div class="FSL-table-actions">${actionButton('edit-student', student.id, 'pencil', 'Edit student')}${actionButton('delete-student', student.id, 'trash-2', 'Remove student', 'FSL-icon-btn--danger')}</div></td></tr>`;
+  }).join('') || '<tr><td colspan="7" class="FSL-empty">No students have registered yet.</td></tr>';
 }
 
 function renderPerformanceRows(attempts, filters = {}) {
@@ -143,7 +143,7 @@ function renderPerformanceRows(attempts, filters = {}) {
     if (filters.sort === 'oldest') return new Date(a.completed_at || a.started_at || 0) - new Date(b.completed_at || b.started_at || 0);
     return new Date(b.completed_at || b.started_at || 0) - new Date(a.completed_at || a.started_at || 0);
   });
-  return rows.map(attempt => `<tr><td>${escape(attempt.profiles?.full_name || attempt.profiles?.email || 'Student')}</td><td>${escape(attempt.quizzes?.title || quizTypeLabel(attempt.quiz_type))}</td><td>${escape(quizTypeLabel(attempt.quiz_type))}</td><td>${ordinalAttempt(attempt.attemptNumber)}</td><td>${attempt.score} / ${attempt.max_score}</td><td>${Math.round(attempt.accuracy || 0)}%</td><td>${attemptDate(attempt.completed_at)}</td><td><div class="asl-table-actions">${actionButton('edit-attempt', attempt.id, 'pencil', 'Edit score')}${actionButton('delete-attempt', attempt.id, 'trash-2', 'Delete attempt', 'asl-icon-btn--danger')}</div></td></tr>`).join('') || '<tr><td colspan="8" class="asl-empty">No matching performance records.</td></tr>';
+  return rows.map(attempt => `<tr><td>${escape(attempt.profiles?.full_name || attempt.profiles?.email || 'Student')}</td><td>${escape(attempt.quizzes?.title || quizTypeLabel(attempt.quiz_type))}</td><td>${escape(quizTypeLabel(attempt.quiz_type))}</td><td>${ordinalAttempt(attempt.attemptNumber)}</td><td>${attempt.score} / ${attempt.max_score}</td><td>${Math.round(attempt.accuracy || 0)}%</td><td>${attemptDate(attempt.completed_at)}</td><td><div class="FSL-table-actions">${actionButton('edit-attempt', attempt.id, 'pencil', 'Edit score')}${actionButton('delete-attempt', attempt.id, 'trash-2', 'Delete attempt', 'FSL-icon-btn--danger')}</div></td></tr>`).join('') || '<tr><td colspan="8" class="FSL-empty">No matching performance records.</td></tr>';
 }
 
 function renderStudentAttemptHistory(students, attempts) {
@@ -153,30 +153,30 @@ function renderStudentAttemptHistory(students, attempts) {
       .filter(attempt => attempt.student_id === student.id)
       .sort((a, b) => new Date(b.completed_at || b.started_at || 0) - new Date(a.completed_at || a.started_at || 0));
     const attemptList = own.length ? own.map(attempt => `
-      <div class="asl-attempt-tree__attempt">
-        <div class="asl-attempt-tree__main">
+      <div class="FSL-attempt-tree__attempt">
+        <div class="FSL-attempt-tree__main">
           <span>${escape(attempt.quizzes?.title || quizTypeLabel(attempt.quiz_type))}</span>
           <strong>${ordinalAttempt(attempt.attemptNumber)} attempt</strong>
           <small>${attempt.score}/${attempt.max_score} · ${Math.round(attempt.accuracy || 0)}% · ${attemptDate(attempt.completed_at)}</small>
         </div>
-        <div class="asl-table-actions">
+        <div class="FSL-table-actions">
           ${actionButton('edit-attempt', attempt.id, 'pencil', 'Edit attempt score')}
-          ${actionButton('delete-attempt', attempt.id, 'trash-2', 'Delete attempt record', 'asl-icon-btn--danger')}
+          ${actionButton('delete-attempt', attempt.id, 'trash-2', 'Delete attempt record', 'FSL-icon-btn--danger')}
         </div>
       </div>
-    `).join('') : '<span class="asl-muted">No quiz attempts yet.</span>';
-    return `<tr><td>${escape(student.full_name || student.email)}</td><td><div class="asl-attempt-tree">${attemptList}</div></td><td><div class="asl-table-actions">${actionButton('edit-student', student.id, 'pencil', 'Edit student name')}${actionButton('delete-student', student.id, 'trash-2', 'Remove student from classroom', 'asl-icon-btn--danger')}</div></td></tr>`;
-  }).join('') || '<tr><td colspan="3" class="asl-empty">No students have registered yet.</td></tr>';
+    `).join('') : '<span class="FSL-muted">No quiz attempts yet.</span>';
+    return `<tr><td>${escape(student.full_name || student.email)}</td><td><div class="FSL-attempt-tree">${attemptList}</div></td><td><div class="FSL-table-actions">${actionButton('edit-student', student.id, 'pencil', 'Edit student name')}${actionButton('delete-student', student.id, 'trash-2', 'Remove student from classroom', 'FSL-icon-btn--danger')}</div></td></tr>`;
+  }).join('') || '<tr><td colspan="3" class="FSL-empty">No students have registered yet.</td></tr>';
 }
 
 export async function mount(container) {
-  document.body.classList.remove('asl-modal-open');
-  container.innerHTML = '<div class="asl-container"><div class="asl-card">Loading teacher panel…</div></div>';
+  document.body.classList.remove('FSL-modal-open');
+  container.innerHTML = '<div class="FSL-container"><div class="FSL-card">Loading teacher panel…</div></div>';
   try {
     const profile = await getProfile();
     if (!profile) { navigate('#/auth/login'); return; }
     if (profile.role !== 'teacher') {
-      container.innerHTML = '<div class="asl-container"><div class="asl-card"><h2>Teacher access required</h2><p>Your account is currently registered as a student. Ask an administrator to update your role in Supabase.</p></div></div>';
+      container.innerHTML = '<div class="FSL-container"><div class="FSL-card"><h2>Teacher access required</h2><p>Your account is currently registered as a student. Ask an administrator to update your role in Supabase.</p></div></div>';
       return;
     }
     const [quizzes, students, attempts, classroom, supportedWordSigns] = await Promise.all([
@@ -184,7 +184,7 @@ export async function mount(container) {
     ]);
     render(container, profile, quizzes, students, attempts, classroom, supportedWordSigns);
   } catch (error) {
-    container.innerHTML = `<div class="asl-container"><div class="asl-card"><h2>Teacher panel setup needed</h2><p>${escape(error.message)}</p><p>Run <code>supabase/schema.sql</code> in Supabase before using the panel.</p></div></div>`;
+    container.innerHTML = `<div class="FSL-container"><div class="FSL-card"><h2>Teacher panel setup needed</h2><p>${escape(error.message)}</p><p>Run <code>supabase/schema.sql</code> in Supabase before using the panel.</p></div></div>`;
   }
 }
 
@@ -198,30 +198,30 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
   const content = {
     dashboard: renderTeacherDashboardView({ profile, quizzes, students, attempts, classroom }),
     activities: `
-      <div class="asl-section__heading">
-        <div><span class="asl-eyebrow">Teacher activities</span><h1>Activities</h1><p>Manage quizzes and publish classroom work.</p></div>
+      <div class="FSL-section__heading">
+        <div><span class="FSL-eyebrow">Teacher activities</span><h1>Activities</h1><p>Manage quizzes and publish classroom work.</p></div>
       </div>
       ${renderCreateQuizCard(supportedWordSigns)}
-      <section class="asl-section"><h2>Quizzes list</h2>${renderQuizTable(quizzes)}</section>`,
+      <section class="FSL-section"><h2>Quizzes list</h2>${renderQuizTable(quizzes)}</section>`,
     students: `
-      <div class="asl-section__heading">
-        <div><span class="asl-eyebrow">Teacher records</span><h1>Student List</h1><p>Manage student records connected to your classroom.</p></div>
-        <button type="button" class="asl-btn asl-btn--primary" data-action="register-student"><i data-lucide="user-plus"></i>Register Student</button>
+      <div class="FSL-section__heading">
+        <div><span class="FSL-eyebrow">Teacher records</span><h1>Student List</h1><p>Manage student records connected to your classroom.</p></div>
+        <button type="button" class="FSL-btn FSL-btn--primary" data-action="register-student"><i data-lucide="user-plus"></i>Register Student</button>
       </div>
-      <section class="asl-section"><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Email</th><th>Gender</th><th>Joined</th><th>Attempts</th><th>Average</th><th>Actions</th></tr></thead><tbody>${renderStudentRows(students, attempts)}</tbody></table></div></section>`,
+      <section class="FSL-section"><div class="FSL-table-wrap"><table class="FSL-table"><thead><tr><th>Student</th><th>Email</th><th>Gender</th><th>Joined</th><th>Attempts</th><th>Average</th><th>Actions</th></tr></thead><tbody>${renderStudentRows(students, attempts)}</tbody></table></div></section>`,
     performance: `
-      <div class="asl-section__heading"><div><span class="asl-eyebrow">Teacher reports</span><h1>Performance</h1><p>Filter quiz attempts by quiz, type, and score order.</p></div></div>
-      <section class="asl-card asl-filter-panel">
+      <div class="FSL-section__heading"><div><span class="FSL-eyebrow">Teacher reports</span><h1>Performance</h1><p>Filter quiz attempts by quiz, type, and score order.</p></div></div>
+      <section class="FSL-card FSL-filter-panel">
         <label>Quiz<select id="performance-filter-quiz"><option value="">All quizzes</option>${quizzes.map(quiz => `<option value="${escape(quiz.id)}">${escape(quiz.title)}</option>`).join('')}</select></label>
         <label>Type<select id="performance-filter-type"><option value="">All types</option><option value="alphabet">Alphabet</option><option value="spelling">Spelling</option><option value="word_sign">Word sign</option></select></label>
         <label>Sort<select id="performance-filter-sort"><option value="recent">Most recent</option><option value="highest">Highest score</option><option value="lowest">Lowest score</option><option value="oldest">Oldest</option></select></label>
       </section>
-      <section class="asl-section"><div class="asl-table-wrap"><table class="asl-table"><thead><tr><th>Student</th><th>Quiz</th><th>Type</th><th>Attempt</th><th>Score</th><th>Accuracy</th><th>Completed</th><th>Actions</th></tr></thead><tbody id="performance-table-body">${renderPerformanceRows(attempts)}</tbody></table></div></section>`
+      <section class="FSL-section"><div class="FSL-table-wrap"><table class="FSL-table"><thead><tr><th>Student</th><th>Quiz</th><th>Type</th><th>Attempt</th><th>Score</th><th>Accuracy</th><th>Completed</th><th>Actions</th></tr></thead><tbody id="performance-table-body">${renderPerformanceRows(attempts)}</tbody></table></div></section>`
   }[view];
 
   container.innerHTML = `
-    <div class="asl-dashboard asl-container">
-      <div id="teacher-action-message" class="asl-form__message ${actionMessage ? `asl-form__message--${actionMessage.type}` : ''}" aria-live="polite">${actionMessage ? escape(actionMessage.text) : ''}</div>
+    <div class="FSL-dashboard FSL-container">
+      <div id="teacher-action-message" class="FSL-form__message ${actionMessage ? `FSL-form__message--${actionMessage.type}` : ''}" aria-live="polite">${actionMessage ? escape(actionMessage.text) : ''}</div>
       ${content}
     </div>`;
 
@@ -233,20 +233,20 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
       backdrop.classList.remove('is-open');
       trigger.setAttribute('aria-expanded', 'false');
     });
-    document.body.classList.remove('asl-drawer-open');
+    document.body.classList.remove('FSL-drawer-open');
   };
 
-  container.querySelectorAll('.asl-form-toggle').forEach(trigger => {
+  container.querySelectorAll('.FSL-form-toggle').forEach(trigger => {
     const form = container.querySelector(`#${trigger.dataset.formId}`);
     if (!form) return;
     const backdrop = document.createElement('div');
-    backdrop.className = 'asl-drawer-backdrop';
+    backdrop.className = 'FSL-drawer-backdrop';
     const drawer = document.createElement('aside');
-    drawer.className = 'asl-form-drawer';
+    drawer.className = 'FSL-form-drawer';
     drawer.id = `${trigger.dataset.formId}-drawer`;
     drawer.setAttribute('aria-hidden', 'true');
     drawer.setAttribute('aria-label', trigger.dataset.label);
-    drawer.innerHTML = `<div class="asl-form-drawer__header"><div><span class="asl-eyebrow">Teacher tools</span><h2>${trigger.dataset.label}</h2></div><button type="button" class="asl-form-drawer__close" aria-label="Close form"><i data-lucide="x"></i></button></div>`;
+    drawer.innerHTML = `<div class="FSL-form-drawer__header"><div><span class="FSL-eyebrow">Teacher tools</span><h2>${trigger.dataset.label}</h2></div><button type="button" class="FSL-form-drawer__close" aria-label="Close form"><i data-lucide="x"></i></button></div>`;
     form.hidden = false;
     drawer.append(form);
     container.append(backdrop, drawer);
@@ -259,61 +259,61 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
       drawer.setAttribute('aria-hidden', 'false');
       backdrop.classList.add('is-open');
       trigger.setAttribute('aria-expanded', 'true');
-      document.body.classList.add('asl-drawer-open');
+      document.body.classList.add('FSL-drawer-open');
       setTimeout(() => form.querySelector('input, select')?.focus(), 180);
     };
     trigger.addEventListener('click', openDrawer);
     backdrop.addEventListener('click', closeDrawers);
-    drawer.querySelector('.asl-form-drawer__close').addEventListener('click', closeDrawers);
+    drawer.querySelector('.FSL-form-drawer__close').addEventListener('click', closeDrawers);
   });
   createIcons({ icons });
 
   const setActionMessage = (text, typeName = 'success') => {
     const message = container.querySelector('#teacher-action-message');
     if (!message) return;
-    message.className = `asl-form__message asl-form__message--${typeName}`;
+    message.className = `FSL-form__message FSL-form__message--${typeName}`;
     message.textContent = text;
   };
 
   const closeModal = () => {
-    container.querySelector('.asl-modal-backdrop')?.remove();
-    document.body.classList.remove('asl-modal-open');
+    container.querySelector('.FSL-modal-backdrop')?.remove();
+    document.body.classList.remove('FSL-modal-open');
   };
 
   const openEditModal = ({ title, description, body, onSubmit }) => {
     closeModal();
     const backdrop = document.createElement('div');
-    backdrop.className = 'asl-modal-backdrop is-open';
+    backdrop.className = 'FSL-modal-backdrop is-open';
     backdrop.innerHTML = `
-      <section class="asl-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-modal-title">
-        <div class="asl-modal__header">
-          <div><span class="asl-eyebrow">Edit record</span><h2 id="teacher-modal-title">${escape(title)}</h2>${description ? `<p>${escape(description)}</p>` : ''}</div>
-          <button type="button" class="asl-modal__close" aria-label="Close edit form"><i data-lucide="x"></i></button>
+      <section class="FSL-modal" role="dialog" aria-modal="true" aria-labelledby="teacher-modal-title">
+        <div class="FSL-modal__header">
+          <div><span class="FSL-eyebrow">Edit record</span><h2 id="teacher-modal-title">${escape(title)}</h2>${description ? `<p>${escape(description)}</p>` : ''}</div>
+          <button type="button" class="FSL-modal__close" aria-label="Close edit form"><i data-lucide="x"></i></button>
         </div>
-        <form class="asl-form asl-modal__form">
+        <form class="FSL-form FSL-modal__form">
           ${body}
-          <div id="teacher-modal-message" class="asl-form__message" aria-live="polite"></div>
-          <div class="asl-modal__actions">
-            <button type="button" class="asl-btn asl-btn--secondary" data-modal-close>Cancel</button>
-            <button type="submit" class="asl-btn asl-btn--primary">Save changes</button>
+          <div id="teacher-modal-message" class="FSL-form__message" aria-live="polite"></div>
+          <div class="FSL-modal__actions">
+            <button type="button" class="FSL-btn FSL-btn--secondary" data-modal-close>Cancel</button>
+            <button type="submit" class="FSL-btn FSL-btn--primary">Save changes</button>
           </div>
         </form>
       </section>`;
     container.append(backdrop);
-    document.body.classList.add('asl-modal-open');
+    document.body.classList.add('FSL-modal-open');
     createIcons({ icons });
 
     const form = backdrop.querySelector('form');
     const message = backdrop.querySelector('#teacher-modal-message');
     const submitButton = form.querySelector('[type="submit"]');
     const showModalError = error => {
-      message.className = 'asl-form__message asl-form__message--error';
+      message.className = 'FSL-form__message FSL-form__message--error';
       message.textContent = error.message || 'Could not update record.';
       submitButton.disabled = false;
     };
 
     backdrop.addEventListener('click', event => {
-      if (event.target === backdrop || event.target.closest('[data-modal-close], .asl-modal__close')) closeModal();
+      if (event.target === backdrop || event.target.closest('[data-modal-close], .FSL-modal__close')) closeModal();
     });
     form.addEventListener('submit', async event => {
       event.preventDefault();
@@ -332,27 +332,27 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
   const openConfirmModal = ({ title, description, confirmLabel, onConfirm }) => {
     closeModal();
     const backdrop = document.createElement('div');
-    backdrop.className = 'asl-modal-backdrop is-open';
+    backdrop.className = 'FSL-modal-backdrop is-open';
     backdrop.innerHTML = `
-      <section class="asl-modal asl-modal--confirm" role="dialog" aria-modal="true" aria-labelledby="teacher-confirm-title">
-        <div class="asl-modal__header">
-          <div><span class="asl-eyebrow">Confirm action</span><h2 id="teacher-confirm-title">${escape(title)}</h2><p>${escape(description)}</p></div>
-          <button type="button" class="asl-modal__close" aria-label="Close confirmation"><i data-lucide="x"></i></button>
+      <section class="FSL-modal FSL-modal--confirm" role="dialog" aria-modal="true" aria-labelledby="teacher-confirm-title">
+        <div class="FSL-modal__header">
+          <div><span class="FSL-eyebrow">Confirm action</span><h2 id="teacher-confirm-title">${escape(title)}</h2><p>${escape(description)}</p></div>
+          <button type="button" class="FSL-modal__close" aria-label="Close confirmation"><i data-lucide="x"></i></button>
         </div>
-        <div id="teacher-confirm-message" class="asl-form__message" aria-live="polite"></div>
-        <div class="asl-modal__actions">
-          <button type="button" class="asl-btn asl-btn--secondary" data-modal-close>Cancel</button>
-          <button type="button" class="asl-btn asl-btn--danger" data-confirm-action>${escape(confirmLabel)}</button>
+        <div id="teacher-confirm-message" class="FSL-form__message" aria-live="polite"></div>
+        <div class="FSL-modal__actions">
+          <button type="button" class="FSL-btn FSL-btn--secondary" data-modal-close>Cancel</button>
+          <button type="button" class="FSL-btn FSL-btn--danger" data-confirm-action>${escape(confirmLabel)}</button>
         </div>
       </section>`;
     container.append(backdrop);
-    document.body.classList.add('asl-modal-open');
+    document.body.classList.add('FSL-modal-open');
     createIcons({ icons });
 
     const confirmButton = backdrop.querySelector('[data-confirm-action]');
     const message = backdrop.querySelector('#teacher-confirm-message');
     backdrop.addEventListener('click', event => {
-      if (event.target === backdrop || event.target.closest('[data-modal-close], .asl-modal__close')) closeModal();
+      if (event.target === backdrop || event.target.closest('[data-modal-close], .FSL-modal__close')) closeModal();
     });
     confirmButton.addEventListener('click', async () => {
       confirmButton.disabled = true;
@@ -361,7 +361,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
         await onConfirm();
         closeModal();
       } catch (error) {
-        message.className = 'asl-form__message asl-form__message--error';
+        message.className = 'FSL-form__message FSL-form__message--error';
         message.textContent = error.message || 'Could not complete action.';
         confirmButton.disabled = false;
       }
@@ -393,7 +393,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
       description: quizTypeLabel(quiz.quiz_type),
       body: `
         <label>Quiz title<input name="title" required maxlength="100" value="${escape(quiz.title)}"></label>
-        <div class="asl-form-row">
+        <div class="FSL-form-row">
           <label>Questions per student<input name="questionCount" type="number" min="1" max="26" value="${quiz.question_count}" required ${isTwoWords ? 'readonly' : ''}></label>
           <label>Allowed attempts<input name="maxAttempts" type="number" min="1" max="10" value="${getMaxAttempts(quiz)}" required></label>
         </div>
@@ -423,7 +423,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
       title: 'Attempt score',
       description: `${attempt.profiles?.full_name || attempt.profiles?.email || 'Student'} · ${attempt.quizzes?.title || quizTypeLabel(attempt.quiz_type)}`,
       body: `
-        <div class="asl-form-row">
+        <div class="FSL-form-row">
           <label>Score<input name="score" type="number" min="0" value="${attempt.score}" required></label>
           <label>Max score<input name="maxScore" type="number" min="1" value="${attempt.max_score}" required></label>
         </div>`,
@@ -451,7 +451,7 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
       body: `
         <label>Student name<input name="fullName" required maxlength="120" placeholder="Student full name"></label>
         <label>Email<input name="email" type="email" required placeholder="student@example.com"></label>
-        <div class="asl-form-row">
+        <div class="FSL-form-row">
           <label>Gender<select name="gender"><option value="unspecified">Unspecified</option><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></label>
           <label>Temporary password<input name="password" type="password" minlength="6" required placeholder="At least 6 characters"></label>
         </div>`,
@@ -632,12 +632,12 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
     const selectedPhrase = [fd.get('wordSign1'), fd.get('wordSign2')]
       .map(word => supportedWordLookup.get(normalizeWordSign(word)))
       .filter(Boolean);
-    if (quizType === 'alphabet' && rangeStart > rangeEnd) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'The end letter must come after the start letter.'; return; }
-    if (quizType === 'spelling' && !selectedWords.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Add at least one word for a spelling quiz.'; return; }
-    if (quizType === 'word_sign' && selectedWordQuizType === 'single_word' && !selectedWordSigns.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Select at least one recognizable word.'; return; }
-    if (quizType === 'word_sign' && selectedWordQuizType === 'single_word' && questionCount > selectedWordSigns.length) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'The question count cannot exceed the selected words.'; return; }
-    if (quizType === 'word_sign' && selectedWordQuizType === 'two_words' && selectedPhrase.length !== 2) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Select both words from the trained model list.'; return; }
-    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = 'Allowed attempts must be between 1 and 10.'; return; }
+    if (quizType === 'alphabet' && rangeStart > rangeEnd) { message.className = 'FSL-form__message FSL-form__message--error'; message.textContent = 'The end letter must come after the start letter.'; return; }
+    if (quizType === 'spelling' && !selectedWords.length) { message.className = 'FSL-form__message FSL-form__message--error'; message.textContent = 'Add at least one word for a spelling quiz.'; return; }
+    if (quizType === 'word_sign' && selectedWordQuizType === 'single_word' && !selectedWordSigns.length) { message.className = 'FSL-form__message FSL-form__message--error'; message.textContent = 'Select at least one recognizable word.'; return; }
+    if (quizType === 'word_sign' && selectedWordQuizType === 'single_word' && questionCount > selectedWordSigns.length) { message.className = 'FSL-form__message FSL-form__message--error'; message.textContent = 'The question count cannot exceed the selected words.'; return; }
+    if (quizType === 'word_sign' && selectedWordQuizType === 'two_words' && selectedPhrase.length !== 2) { message.className = 'FSL-form__message FSL-form__message--error'; message.textContent = 'Select both words from the trained model list.'; return; }
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) { message.className = 'FSL-form__message FSL-form__message--error'; message.textContent = 'Allowed attempts must be between 1 and 10.'; return; }
     button.disabled = true;
     try {
       if (!classroom) throw new Error('Your teacher room is not ready yet. Contact an administrator.');
@@ -647,13 +647,13 @@ function render(container, profile, quizzes, students, attempts, classroom, supp
           ? { quiz_type: selectedWordQuizType, words: selectedWordQuizType === 'two_words' ? selectedPhrase : selectedWordSigns }
           : { words: selectedWords };
       await createQuiz({ classroom_id: classroom.id, title: fd.get('title').trim(), quiz_type: quizType, question_count: selectedWordQuizType === 'two_words' && quizType === 'word_sign' ? 1 : questionCount, max_attempts: maxAttempts, is_published: fd.has('published'), available_from: fd.get('availableFrom') || null, available_until: fd.get('availableUntil') || null, settings });
-      message.className = 'asl-form__message asl-form__message--success'; message.textContent = 'Quiz created. Refreshing the list…';
+      message.className = 'FSL-form__message FSL-form__message--success'; message.textContent = 'Quiz created. Refreshing the list…';
       closeDrawers();
       setTimeout(() => mount(container), 500);
-    } catch (error) { message.className = 'asl-form__message asl-form__message--error'; message.textContent = error.message || 'Could not create quiz.'; button.disabled = false; }
+    } catch (error) { message.className = 'FSL-form__message FSL-form__message--error'; message.textContent = error.message || 'Could not create quiz.'; button.disabled = false; }
   });
 }
 export function unmount() {
-  document.body.classList.remove('asl-drawer-open');
-  document.body.classList.remove('asl-modal-open');
+  document.body.classList.remove('FSL-drawer-open');
+  document.body.classList.remove('FSL-modal-open');
 }

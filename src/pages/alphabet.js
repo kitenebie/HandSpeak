@@ -33,10 +33,10 @@ export async function mount(container, params) {
     : teacherLessons;
 
   container.innerHTML = `
-    <div class="asl-alphabet-page asl-container">
-      <div class="asl-section__heading"><div><span class="asl-eyebrow">Learning</span><h1>ASL alphabet lessons</h1><p>Choose a sign to open its focused webcam practice.</p></div></div>
-      ${lessonsToShow.length ? `<section class="asl-teacher-lessons"><div class="asl-section__heading"><div><span class="asl-eyebrow">From your teacher</span><h2>Learning activities</h2></div></div><div class="asl-dashboard-grid">${lessonsToShow.map(lesson => `<article class="asl-card asl-teacher-lesson ${selectedLesson?.id === lesson.id ? 'asl-teacher-lesson--selected' : ''}"><span class="asl-classroom-activity__icon"><i data-lucide="book-open"></i></span><h3>${escape(lesson.title)}</h3><p>${escape(lesson.description || 'Open the alphabet lesson and practice each sign.')}</p><button type="button" class="asl-btn asl-btn--secondary open-alphabet">Open alphabet <i data-lucide="arrow-down"></i></button></article>`).join('')}</div></section>` : ''}
-      <section class="asl-section" id="alphabet-lesson"><h2 class="sr-only">Alphabet signs</h2><div id="alphabet-grid-container"></div></section>
+    <div class="FSL-alphabet-page FSL-container">
+      <div class="FSL-section__heading"><div><span class="FSL-eyebrow">Learning</span><h1>FSL alphabet lessons</h1><p>Choose a sign to open its focused webcam practice.</p></div></div>
+      ${lessonsToShow.length ? `<section class="FSL-teacher-lessons"><div class="FSL-section__heading"><div><span class="FSL-eyebrow">From your teacher</span><h2>Learning activities</h2></div></div><div class="FSL-dashboard-grid">${lessonsToShow.map(lesson => `<article class="FSL-card FSL-teacher-lesson ${selectedLesson?.id === lesson.id ? 'FSL-teacher-lesson--selected' : ''}"><span class="FSL-classroom-activity__icon"><i data-lucide="book-open"></i></span><h3>${escape(lesson.title)}</h3><p>${escape(lesson.description || 'Open the alphabet lesson and practice each sign.')}</p><button type="button" class="FSL-btn FSL-btn--secondary open-alphabet">Open alphabet <i data-lucide="arrow-down"></i></button></article>`).join('')}</div></section>` : ''}
+      <section class="FSL-section" id="alphabet-lesson"><h2 class="sr-only">Alphabet signs</h2><div id="alphabet-grid-container"></div></section>
     </div>
   `;
 

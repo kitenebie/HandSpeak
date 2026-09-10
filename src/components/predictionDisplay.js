@@ -1,26 +1,26 @@
 export function createPredictionDisplay(container, { feedbackOnly = false } = {}) {
   const el = document.createElement('div');
-  el.className = `asl-prediction${feedbackOnly ? ' asl-prediction--feedback-only' : ''}`;
-  el.innerHTML = feedbackOnly ? '<div class="asl-prediction__feedback" style="display:none"></div>' : `
-    <div class="asl-prediction__letter">—</div>
-    <div class="asl-prediction__status">Waiting for hand...</div>
-    <div class="asl-prediction__feedback" style="display:none"></div>`;
+  el.className = `FSL-prediction${feedbackOnly ? ' FSL-prediction--feedback-only' : ''}`;
+  el.innerHTML = feedbackOnly ? '<div class="FSL-prediction__feedback" style="display:none"></div>' : `
+    <div class="FSL-prediction__letter">—</div>
+    <div class="FSL-prediction__status">Waiting for hand...</div>
+    <div class="FSL-prediction__feedback" style="display:none"></div>`;
   container.appendChild(el);
   if (feedbackOnly) el.style.display = 'none';
   
-  const letterEl = el.querySelector('.asl-prediction__letter');
-  const statusEl = el.querySelector('.asl-prediction__status');
-  const feedbackEl = el.querySelector('.asl-prediction__feedback');
+  const letterEl = el.querySelector('.FSL-prediction__letter');
+  const statusEl = el.querySelector('.FSL-prediction__status');
+  const feedbackEl = el.querySelector('.FSL-prediction__feedback');
 
   return {
     update({ label, confidence, isStable, handDetected, status }) {
       if (feedbackOnly) return;
-      el.classList.remove('asl-prediction--no-hand', 'asl-prediction--stable');
+      el.classList.remove('FSL-prediction--no-hand', 'FSL-prediction--stable');
       
       if (!handDetected) {
         letterEl.textContent = '—';
         statusEl.textContent = 'No hand detected — Place your hand in the camera frame';
-        el.classList.add('asl-prediction--no-hand');
+        el.classList.add('FSL-prediction--no-hand');
         return;
       }
       
@@ -35,26 +35,26 @@ export function createPredictionDisplay(container, { feedbackOnly = false } = {}
       } else if (status === 'stable') {
         letterEl.style.opacity = '1';
         statusEl.textContent = '✓ Stable';
-        el.classList.add('asl-prediction--stable');
+        el.classList.add('FSL-prediction--stable');
       }
     },
     showCorrect(letter) {
       if (feedbackOnly) el.style.display = 'block';
       feedbackEl.style.display = 'block';
-      feedbackEl.className = 'asl-prediction__feedback asl-feedback--correct asl-flash-correct';
+      feedbackEl.className = 'FSL-prediction__feedback FSL-feedback--correct FSL-flash-correct';
       feedbackEl.textContent = '✓ Correct!';
     },
     showIncorrect(target, detected) {
       if (feedbackOnly) el.style.display = 'block';
       feedbackEl.style.display = 'block';
-      feedbackEl.className = 'asl-prediction__feedback asl-feedback--incorrect asl-flash-incorrect';
+      feedbackEl.className = 'FSL-prediction__feedback FSL-feedback--incorrect FSL-flash-incorrect';
       feedbackEl.textContent = '✕ Wrong sign — Try again.';
     },
     reset() {
       if (feedbackOnly) el.style.display = 'none';
       feedbackEl.style.display = 'none';
       feedbackEl.textContent = '';
-      feedbackEl.className = 'asl-prediction__feedback';
+      feedbackEl.className = 'FSL-prediction__feedback';
       this.update({ handDetected: false });
     },
     destroy() {
