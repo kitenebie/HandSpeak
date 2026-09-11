@@ -1,6 +1,7 @@
 import { isSupabaseConfigured } from '../lib/supabase.js';
 import { requestPasswordReset, resendConfirmation, signIn, signUp, updatePassword, validateRegistrationCode } from '../lib/classroom.js';
 import { navigate } from '../router.js';
+import { createIcons, icons } from 'lucide';
 
 export function mount(container, params) {
   if (!isSupabaseConfigured()) {
@@ -38,7 +39,7 @@ function render(container, mode) {
         <form id="auth-form" class="FSL-form">
           ${register ? '<label>Account type<select name="accountType" id="account-type"><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label>Full name<input required name="fullName" autocomplete="name" placeholder="Your name"></label><label>Gender<select name="gender" required><option value="" disabled selected>Select gender</option><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option><option value="unspecified">Prefer not to say</option></select></label><label id="registration-code-label">Teachers room code<input required name="registrationCode" autocomplete="off" placeholder="e.g. A1B2C3, X6H7L0, Y9K8M7" maxlength="16" style="text-transform:uppercase"></label>' : ''}
           <label>Email<input required name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
-          <label>Password<input required name="password" type="password" minlength="6" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="At least 6 characters"></label>
+          <div class="FSL-password-field"><label for="auth-password">Password</label><div class="FSL-password-field__input"><input id="auth-password" required name="password" type="password" minlength="6" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="At least 6 characters"><button type="button" class="FSL-password-toggle" aria-label="Show password" aria-controls="auth-password" aria-pressed="false" title="Show password"><i data-lucide="eye" aria-hidden="true"></i></button></div></div>
           ${!register ? '<div class="FSL-auth__forgot"><a href="#/auth/forgot-password">Forgot password?</a></div>' : ''}
           <div id="auth-message" class="FSL-form__message" aria-live="polite"></div>
           <button class="FSL-btn FSL-btn--primary FSL-btn--lg" type="submit">${register ? 'Create account' : 'Sign in'}</button>
@@ -49,10 +50,22 @@ function render(container, mode) {
       </section>
     </main>`;
   const form = container.querySelector('#auth-form');
+  const passwordInput = form.querySelector('#auth-password');
+  const passwordToggle = form.querySelector('.FSL-password-toggle');
+  createIcons({ icons });
+  passwordToggle.addEventListener('click', () => {
+    const visible = passwordInput.type === 'password';
+    passwordInput.type = visible ? 'text' : 'password';
+    passwordToggle.setAttribute('aria-pressed', String(visible));
+    passwordToggle.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+    passwordToggle.title = visible ? 'Hide password' : 'Show password';
+    passwordToggle.innerHTML = `<i data-lucide="${visible ? 'eye-off' : 'eye'}" aria-hidden="true"></i>`;
+    createIcons({ icons });
+  });
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const message = container.querySelector('#auth-message');
-    const button = form.querySelector('button');
+    const button = form.querySelector('button[type="submit"]');
     const fields = new FormData(form);
     button.disabled = true;
     message.textContent = '';

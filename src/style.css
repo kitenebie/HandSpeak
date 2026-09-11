@@ -504,3 +504,11 @@ body.FSL-sidebar-hidden #page-content { margin-left: 0; padding-top: 2rem; }
 .FSL-form textarea:focus { box-shadow: 0 0 0 3px rgba(108, 99, 255, .08); }
 .FSL-form textarea[name="roomCodes"] { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .875rem; letter-spacing: .04em; padding: .85rem 1rem; }
 .FSL-form textarea:disabled { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
+.FSL-password-field { display: grid; gap: .4rem; }
+.FSL-password-field__input { position: relative; }
+.FSL-password-field__input input { padding-right: 3.25rem; }
+.FSL-password-toggle { position: absolute; right: .2rem; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 40px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #64748b; cursor: pointer; }
+.FSL-password-toggle:hover { color: #2563eb; background: #eff6ff; }
+.FSL-password-toggle:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+.FSL-password-toggle svg { width: 20px; height: 20px; pointer-events: none; }
+.FSL-password-field__input input::-ms-reveal { display: none; }

@@ -5,6 +5,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 const allowedGenders = new Set(['female', 'male', 'other', 'unspecified']);
+// This must also be allow-listed in Supabase Auth > URL Configuration.
+const inviteRedirectUrl = Deno.env.get('INVITE_REDIRECT_URL')
+  || 'https://goldenrod-wren-935596.hostingersite.com';
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -48,6 +51,7 @@ Deno.serve(async (request) => {
 
     const { error: authError } = await adminClient.auth.admin.inviteUserByEmail(normalizedEmail, {
       data: { full_name: normalizedName, teacher_invite_code: normalizedCode, gender: normalizedGender },
+      redirectTo: inviteRedirectUrl,
     });
     if (authError) {
       await adminClient.from('teacher_invites').delete().eq('id', invite.id);
