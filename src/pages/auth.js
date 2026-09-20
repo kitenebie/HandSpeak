@@ -15,6 +15,8 @@ export function mount(container, params) {
       ? 'forgot-password'
       : hash.includes('/auth/reset-password')
         ? 'reset-password'
+        : hash.includes('/auth/set-password')
+          ? 'set-password'
         : 'login';
   render(container, mode);
 }
@@ -28,6 +30,10 @@ function render(container, mode) {
     renderResetPassword(container);
     return;
   }
+  if (mode === 'set-password') {
+    renderSetPassword(container);
+    return;
+  }
 
   const register = mode === 'register';
   container.innerHTML = `
@@ -35,9 +41,9 @@ function render(container, mode) {
       <section class="FSL-auth__card FSL-card">
         <div class="FSL-auth__mark">🤟</div>
         <h1>${register ? 'Create your account' : 'Welcome back'}</h1>
-        <p>${register ? 'Students join their first room with a code and can add more teacher rooms from their dashboard. Teachers register using an admin invitation code.' : 'Sign in to continue your FSL learning journey.'}</p>
+        <p>${register ? 'Students join their first classroom with a code and can add more classrooms from their dashboard.' : 'Sign in to continue your FSL learning journey.'}</p>
         <form id="auth-form" class="FSL-form">
-          ${register ? '<label>Account type<select name="accountType" id="account-type"><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label>Full name<input required name="fullName" autocomplete="name" placeholder="Your name"></label><label>Gender<select name="gender" required><option value="" disabled selected>Select gender</option><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option><option value="unspecified">Prefer not to say</option></select></label><label id="registration-code-label">Teachers room code<input required name="registrationCode" autocomplete="off" placeholder="e.g. A1B2C3, X6H7L0, Y9K8M7" maxlength="16" style="text-transform:uppercase"></label>' : ''}
+          ${register ? '<label>Full name<input required name="fullName" autocomplete="name" placeholder="Your name"></label><label>Gender<select name="gender" required><option value="" disabled selected>Select gender</option><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option><option value="unspecified">Prefer not to say</option></select></label><label>Classroom code<input required name="registrationCode" autocomplete="off" placeholder="e.g. A1B2C3, X6H7L0, Y9K8M7" maxlength="16" style="text-transform:uppercase"></label>' : ''}
           <label>Email<input required name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
           <div class="FSL-password-field"><label for="auth-password">Password</label><div class="FSL-password-field__input"><input id="auth-password" required name="password" type="password" minlength="6" autocomplete="${register ? 'new-password' : 'current-password'}" placeholder="At least 6 characters"><button type="button" class="FSL-password-toggle" aria-label="Show password" aria-controls="auth-password" aria-pressed="false" title="Show password"><i data-lucide="eye" aria-hidden="true"></i></button></div></div>
           ${!register ? '<div class="FSL-auth__forgot"><a href="#/auth/forgot-password">Forgot password?</a></div>' : ''}
@@ -46,7 +52,7 @@ function render(container, mode) {
         </form>
         <div class="FSL-auth__switch">${register ? 'Already have an account?' : 'New student?'} <a href="#/auth/${register ? 'login' : 'register'}">${register ? 'Sign in' : 'Register'}</a></div>
         ${!register ? '<button type="button" class="FSL-auth__resend" id="resend-confirmation">Resend confirmation email</button>' : ''}
-        ${register ? '<small>An administrator must create a teacher invitation before a teacher can register.</small>' : ''}
+        ${register ? '<small>Teachers receive their account setup link directly from an administrator.</small>' : ''}
       </section>
     </main>`;
   const form = container.querySelector('#auth-form');
@@ -71,11 +77,10 @@ function render(container, mode) {
     message.textContent = '';
     try {
       if (register) {
-        const accountType = fields.get('accountType');
         const registrationCode = fields.get('registrationCode').trim().toUpperCase();
-        const validCode = await validateRegistrationCode(registrationCode, accountType, fields.get('email'));
-        if (!validCode) throw new Error(accountType === 'teacher' ? 'This teacher invitation code does not match the email address.' : 'That teacher room code was not found or is closed.');
-        const result = await signUp({ fullName: fields.get('fullName').trim(), email: fields.get('email'), password: fields.get('password'), gender: fields.get('gender'), accountType, registrationCode });
+        const validCode = await validateRegistrationCode(registrationCode, 'student', fields.get('email'));
+        if (!validCode) throw new Error('That classroom code was not found or is closed.');
+        const result = await signUp({ fullName: fields.get('fullName').trim(), email: fields.get('email'), password: fields.get('password'), gender: fields.get('gender'), accountType: 'student', registrationCode });
         message.className = 'FSL-form__message FSL-form__message--success';
         message.textContent = result.session ? 'Account created. Redirecting you to your dashboard…' : 'Check your email to confirm your account, then sign in.';
         if (result.session) setTimeout(() => navigate('#/student'), 600);
@@ -88,15 +93,6 @@ function render(container, mode) {
       message.textContent = error.message || 'Unable to continue. Please try again.';
     } finally { button.disabled = false; }
   });
-  if (register) {
-    const accountType = container.querySelector('#account-type');
-    const codeLabel = container.querySelector('#registration-code-label');
-    accountType.addEventListener('change', () => {
-      const isTeacher = accountType.value === 'teacher';
-      codeLabel.firstChild.textContent = isTeacher ? 'Teacher invitation code' : 'Teacher room code';
-      codeLabel.querySelector('input').placeholder = isTeacher ? 'Invitation code from the administrator' : 'e.g. A1B2C3';
-    });
-  }
   const resendButton = container.querySelector('#resend-confirmation');
   if (resendButton) {
     const savedNotice = sessionStorage.getItem('authNotice');
@@ -205,6 +201,52 @@ function renderResetPassword(container) {
     } catch (error) {
       message.className = 'FSL-form__message FSL-form__message--error';
       message.textContent = error.message || 'This reset link is invalid or expired. Request a new link.';
+      button.disabled = false;
+    }
+  });
+}
+
+function renderSetPassword(container) {
+  container.innerHTML = `
+    <main class="FSL-auth FSL-container">
+      <section class="FSL-auth__card FSL-card">
+        <div class="FSL-auth__mark">👋</div>
+        <h1>Welcome, teacher!</h1>
+        <p>Create a password to finish setting up your account. You will use it the next time you sign in.</p>
+        <form id="set-password-form" class="FSL-form">
+          <label>New password<input required name="password" type="password" minlength="6" autocomplete="new-password" placeholder="At least 6 characters"></label>
+          <label>Confirm password<input required name="confirmPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Enter it again"></label>
+          <div id="auth-message" class="FSL-form__message" aria-live="polite"></div>
+          <button class="FSL-btn FSL-btn--primary FSL-btn--lg" type="submit">Save password and continue</button>
+        </form>
+      </section>
+    </main>`;
+
+  const form = container.querySelector('#set-password-form');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const fields = new FormData(form);
+    const password = fields.get('password');
+    const confirmPassword = fields.get('confirmPassword');
+    const button = form.querySelector('button');
+    const message = container.querySelector('#auth-message');
+    message.textContent = '';
+    if (password !== confirmPassword) {
+      message.className = 'FSL-form__message FSL-form__message--error';
+      message.textContent = 'The passwords do not match.';
+      return;
+    }
+
+    button.disabled = true;
+    try {
+      await updatePassword(password);
+      sessionStorage.removeItem('invitePasswordSetupRequired');
+      message.className = 'FSL-form__message FSL-form__message--success';
+      message.textContent = 'Your password is saved. Redirecting to your teacher dashboard…';
+      setTimeout(() => navigate('#/teacher'), 800);
+    } catch (error) {
+      message.className = 'FSL-form__message FSL-form__message--error';
+      message.textContent = error.message || 'Could not save your password. Open the newest invitation email and try again.';
       button.disabled = false;
     }
   });

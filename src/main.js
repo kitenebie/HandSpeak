@@ -8,6 +8,7 @@ import * as homePage from './pages/home.js';
 import * as alphabetPage from './pages/alphabet.js';
 import * as practiceLetterPage from './pages/practiceLetter.js';
 import * as practiceWordPage from './pages/practiceWord.js';
+import * as alphabetInterpreterPage from './pages/alphabetInterpreter.js';
 import * as quizzesPage from './pages/quizzes.js';
 import * as letterQuizPage from './pages/letterQuiz.js';
 import * as spellingQuizPage from './pages/spellingQuiz.js';
@@ -18,7 +19,7 @@ import * as studentRoomsPage from './pages/studentRooms.js';
 import * as studentDashboardPage from './pages/studentDashboard.js';
 import * as teacherDashboardPage from './pages/teacherDashboard.js';
 import * as adminDashboardPage from './pages/adminDashboard.js';
-import { getProfile, onAuthChange, submitUnfinishedQuizAttempts } from './lib/classroom.js';
+import { getProfile, getSession, onAuthChange, submitUnfinishedQuizAttempts } from './lib/classroom.js';
 
 let debugPanel = null;
 let navbar = null;
@@ -48,7 +49,11 @@ async function init() {
       window.location.hash = '#/auth/reset-password';
     }
     if (event === 'SIGNED_IN') {
-      submitUnfinishedQuizAttempts().catch(error => console.warn('Could not submit an unfinished quiz attempt:', error.message));
+      if (sessionStorage.getItem('invitePasswordSetupRequired') === 'true') {
+        window.location.hash = '#/auth/set-password';
+      } else {
+        submitUnfinishedQuizAttempts().catch(error => console.warn('Could not submit an unfinished quiz attempt:', error.message));
+      }
     }
     if (navbar) navbar.refreshAuth();
   });
@@ -103,6 +108,7 @@ async function init() {
       '/practice/letter/:letter': practiceLetterPage,
       '/practice/word': practiceWordPage,
       '/practice/word/:word': practiceWordPage,
+      '/interpreter/alphabet': alphabetInterpreterPage,
       '/quiz': quizzesPage,
       '/quizzes': quizzesPage,
       '/quiz/letter': letterQuizPage,
@@ -113,6 +119,7 @@ async function init() {
       '/auth/register': authPage,
       '/auth/forgot-password': authPage,
       '/auth/reset-password': authPage,
+      '/auth/set-password': authPage,
       '/student': studentDashboardPage,
       '/student/rooms': studentRoomsPage,
       '/teacher': teacherDashboardPage,
@@ -129,6 +136,14 @@ async function init() {
         initRouter(routes, pageContent, (path) => {
           if (navbar) navbar.setActive(path);
         }, async (path) => {
+          if (sessionStorage.getItem('invitePasswordSetupRequired') === 'true' && path !== '/auth/set-password') {
+            const session = await getSession();
+            if (session) {
+              window.location.hash = '#/auth/set-password';
+              return false;
+            }
+            sessionStorage.removeItem('invitePasswordSetupRequired');
+          }
           const guestOnlyPaths = ['/auth/login', '/auth/register', '/auth/forgot-password'];
           if (guestOnlyPaths.includes(path)) {
             try {
@@ -142,7 +157,7 @@ async function init() {
             }
             return true;
           }
-          const protectedPaths = ['/learn', '/practice', '/quiz', '/quizzes'];
+          const protectedPaths = ['/learn', '/practice', '/interpreter', '/quiz', '/quizzes'];
           if (!protectedPaths.some(prefix => path === prefix || path.startsWith(prefix + '/'))) return true;
           try {
             const profile = await getProfile();
