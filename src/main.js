@@ -8,7 +8,6 @@ import * as homePage from './pages/home.js';
 import * as alphabetPage from './pages/alphabet.js';
 import * as practiceLetterPage from './pages/practiceLetter.js';
 import * as practiceWordPage from './pages/practiceWord.js';
-import * as alphabetInterpreterPage from './pages/alphabetInterpreter.js';
 import * as quizzesPage from './pages/quizzes.js';
 import * as letterQuizPage from './pages/letterQuiz.js';
 import * as spellingQuizPage from './pages/spellingQuiz.js';
@@ -108,7 +107,6 @@ async function init() {
       '/practice/letter/:letter': practiceLetterPage,
       '/practice/word': practiceWordPage,
       '/practice/word/:word': practiceWordPage,
-      '/interpreter/alphabet': alphabetInterpreterPage,
       '/quiz': quizzesPage,
       '/quizzes': quizzesPage,
       '/quiz/letter': letterQuizPage,
@@ -157,7 +155,7 @@ async function init() {
             }
             return true;
           }
-          const protectedPaths = ['/learn', '/practice', '/interpreter', '/quiz', '/quizzes'];
+          const protectedPaths = ['/learn', '/practice', '/quiz', '/quizzes'];
           if (!protectedPaths.some(prefix => path === prefix || path.startsWith(prefix + '/'))) return true;
           try {
             const profile = await getProfile();

@@ -1,4 +1,4 @@
-export function createPredictionDisplay(container, { feedbackOnly = false, showConfidence = false } = {}) {
+export function createPredictionDisplay(container, { feedbackOnly = false, showConfidence = false, stableOnly = false, minVisibleConfidence = 0.75 } = {}) {
   const el = document.createElement('div');
   el.className = `FSL-prediction${feedbackOnly ? ' FSL-prediction--feedback-only' : ''}`;
   el.innerHTML = feedbackOnly ? '<div class="FSL-prediction__feedback" style="display:none"></div>' : `
@@ -36,10 +36,15 @@ export function createPredictionDisplay(container, { feedbackOnly = false, showC
         return;
       }
       
-      letterEl.textContent = label || '—';
+      const isAlphabetLetter = /^[A-Z]$/.test(label || '');
+      const canDisplayLetter = !stableOnly || (isStable && confidence >= minVisibleConfidence && isAlphabetLetter);
+      letterEl.textContent = canDisplayLetter ? label : '—';
       updateConfidence(confidence);
       
-      if (status === 'low-confidence') {
+      if (stableOnly && isStable && !isAlphabetLetter) {
+        letterEl.style.opacity = '0.5';
+        statusEl.textContent = 'Show an alphabet hand sign';
+      } else if (status === 'low-confidence') {
         letterEl.style.opacity = '0.5';
         statusEl.textContent = 'Adjust your hand position';
       } else if (status === 'unstable') {

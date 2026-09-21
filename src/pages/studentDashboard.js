@@ -2,6 +2,20 @@ import { renderStudentRooms, bindStudentRooms } from '../components/studentRooms
 import { getProfile, getPublishedQuizzes, getStudentAttempts, getStudentClassrooms } from '../lib/classroom.js';
 import { navigate } from '../router.js';
 import { createIcons, icons } from 'lucide';
+import { detectHands, isReady } from '../ai/handLandmarker.js';
+import { PredictionEngine } from '../ai/predictionEngine.js';
+import { isLoaded, getModelInfo } from '../ai/FSLModel.js';
+import { createCamera } from '../components/camera.js';
+import { createPredictionDisplay } from '../components/predictionDisplay.js';
+import { updateDebugPanel } from '../main.js';
+
+let interpreterFrame = null;
+let interpreterCamera = null;
+let interpreterDisplay = null;
+let interpreterEngine = null;
+let interpreterLastFrameTime = performance.now();
+let interpreterFrameCount = 0;
+let interpreterFps = 0;
 
 const quizMeta = type => ({
   alphabet: { label: '🔤 Alphabet translation', detail: quiz => `${quiz.settings?.range_start || 'A'}–${quiz.settings?.range_end || 'Z'}`, route: '#/quiz/letter' },
@@ -33,6 +47,7 @@ const attemptsWithNumbers = attempts => {
 };
 
 export async function mount(container) {
+  stopInterpreter();
   container.innerHTML = '<div class="FSL-container"><div class="FSL-card">Loading your classroom…</div></div>';
   try {
     const profile = await getProfile();
@@ -48,14 +63,15 @@ export async function mount(container) {
       <div class="FSL-dashboard FSL-container">
         <div class="FSL-dashboard__heading"><div><span class="FSL-eyebrow">Student dashboard</span><h1>Hello, ${escape(profile.full_name || 'learner')}!</h1><p>Pick up where you left off or take a quiz assigned by your teachers.</p></div><button id="go-learn" class="FSL-btn FSL-btn--secondary">Practice A–Z</button></div>
         <div class="FSL-metric-grid"><div class="FSL-metric"><strong>${attempts.length}</strong><span>Quiz attempts completed</span></div><div class="FSL-metric"><strong>${average}%</strong><span>Average score</span></div><div class="FSL-metric"><strong>${openQuizzes.length}</strong><span>Quizzes with attempts left</span></div></div>
-        ${renderStudentRooms(rooms)}
-        <section class="FSL-section FSL-interpreter-promo" aria-labelledby="alphabet-interpreter-title">
-          <div class="FSL-interpreter-promo__content">
-            <span class="FSL-interpreter-promo__icon"><i data-lucide="scan-line" aria-hidden="true"></i></span>
-            <div><span class="FSL-eyebrow">Camera interpreter</span><h2 id="alphabet-interpreter-title">Interpret an alphabet hand sign</h2><p>Show an FSL alphabet sign to your camera and see the recognized letter in real time.</p></div>
-          </div>
-          <button type="button" id="open-alphabet-interpreter" class="FSL-btn FSL-btn--primary">Open camera <i data-lucide="camera" aria-hidden="true"></i></button>
-        </section>
+        <div class="FSL-student-tools">
+          <div class="FSL-student-tools__classrooms">${renderStudentRooms(rooms)}</div>
+          <section class="FSL-section FSL-card FSL-dashboard-interpreter" aria-labelledby="alphabet-interpreter-title">
+            <div class="FSL-dashboard-interpreter__heading"><div><span class="FSL-eyebrow">Live alphabet recognition</span><h2 id="alphabet-interpreter-title">Camera interpreter</h2></div><span class="FSL-dashboard-interpreter__live"><i data-lucide="scan-line" aria-hidden="true"></i> Live</span></div>
+            <p>Show an FSL alphabet hand sign and hold it steady to see the recognized letter.</p>
+            <div id="dashboard-interpreter-camera"></div>
+            <div id="dashboard-interpreter-result" aria-live="polite"></div>
+          </section>
+        </div>
         <section class="FSL-section"><div class="FSL-section__heading"><div><h2>Teacher quizzes</h2><p>Questions are randomized for each attempt.</p></div></div><div id="assigned-quizzes" class="FSL-dashboard-grid"></div></section>
         <section class="FSL-section"><h2>Recent scores</h2><div class="FSL-table-wrap"><table class="FSL-table"><thead><tr><th>Quiz</th><th>Attempt</th><th>Score</th><th>Accuracy</th><th>Completed</th></tr></thead><tbody>${numberedAttempts.slice(0, 8).map(a => `<tr><td>${escape(a.quizzes?.title || quizMeta(a.quiz_type).label.replace(/^[^ ]+ /, ''))}</td><td>${ordinalAttempt(a.attemptNumber)} attempt</td><td>${a.score} / ${a.max_score}</td><td>${Math.round(a.accuracy || 0)}%</td><td>${new Date(a.completed_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="FSL-empty">No scores yet — your results will appear here.</td></tr>'}</tbody></table></div></section>
       </div>`;
@@ -71,15 +87,75 @@ export async function mount(container) {
     }).join('') : '<div class="FSL-empty-card">No teacher quizzes are open right now.</div>';
     createIcons({ icons });
     container.querySelector('#go-learn').addEventListener('click', () => navigate('#/learn'));
-    container.querySelector('#open-alphabet-interpreter').addEventListener('click', () => navigate('#/interpreter/alphabet'));
     list.querySelectorAll('.start-assignment').forEach(button => button.addEventListener('click', () => {
       const quiz = quizzes[Number(button.dataset.index)];
       if (getQuizAttempts(attempts, quiz.id).length >= getMaxAttempts(quiz)) return;
       sessionStorage.setItem('assignedQuiz', JSON.stringify(quiz));
       navigate(quizMeta(quiz.quiz_type).route);
     }));
+    startInterpreter(container).catch(error => console.error('Camera interpreter error:', error));
   } catch (error) {
     container.innerHTML = `<div class="FSL-container"><div class="FSL-card"><h2>Classroom setup needed</h2><p>${escape(error.message)}</p><p>Run the supplied <code>supabase/schema.sql</code> in your Supabase SQL Editor to create the classroom tables.</p></div></div>`;
   }
 }
-export function unmount() {}
+
+async function startInterpreter(container) {
+  interpreterEngine = new PredictionEngine({ stabilityFrames: 5, minConfidence: 0.8 });
+  interpreterCamera = createCamera(container.querySelector('#dashboard-interpreter-camera'));
+  interpreterDisplay = createPredictionDisplay(container.querySelector('#dashboard-interpreter-result'), {
+    stableOnly: true,
+    minVisibleConfidence: 0.8
+  });
+  await interpreterCamera.start();
+  interpreterLastFrameTime = performance.now();
+  interpreterFrameCount = 0;
+
+  const loop = () => {
+    if (!interpreterCamera) return;
+    const now = performance.now();
+    interpreterFrameCount += 1;
+    if (now - interpreterLastFrameTime >= 1000) {
+      interpreterFps = (interpreterFrameCount * 1000) / (now - interpreterLastFrameTime);
+      interpreterFrameCount = 0;
+      interpreterLastFrameTime = now;
+    }
+
+    const video = interpreterCamera.getVideoElement();
+    if (video && video.readyState >= 2) {
+      const { landmarks, handDetected } = detectHands(video);
+      const result = handDetected && landmarks ? interpreterEngine.process(landmarks) : interpreterEngine.process(null);
+      if (handDetected && landmarks) interpreterCamera.drawLandmarks(landmarks);
+      else interpreterCamera.clearCanvas();
+      interpreterDisplay.update(result);
+      updateDebugPanel({
+        modelLoaded: isLoaded(),
+        mediapipeReady: isReady(),
+        cameraActive: interpreterCamera.isActive(),
+        handDetected: Boolean(handDetected),
+        inputShape: getModelInfo().inputShape,
+        outputClasses: getModelInfo().outputClasses,
+        prediction: result.label,
+        classIndex: result.rawPrediction?.index,
+        confidence: result.confidence,
+        fps: interpreterFps,
+        topPredictions: result.rawPrediction?.topPredictions
+      });
+    }
+    interpreterFrame = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+function stopInterpreter() {
+  if (interpreterFrame) cancelAnimationFrame(interpreterFrame);
+  interpreterFrame = null;
+  interpreterCamera?.destroy();
+  interpreterDisplay?.destroy();
+  interpreterCamera = null;
+  interpreterDisplay = null;
+  interpreterEngine = null;
+}
+
+export function unmount() {
+  stopInterpreter();
+}
