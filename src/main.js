@@ -165,7 +165,11 @@ async function init() {
             }
             if (profile) return true;
           } catch (error) {
-            console.warn('Access check failed:', error.message);
+            // A profile request can fail temporarily while the authenticated
+            // session is still valid. Do not present that as a logout.
+            console.warn('Profile access check failed:', error.message);
+            const session = await getSession();
+            if (session) return true;
           }
           window.location.hash = '#/auth/login';
           return false;
